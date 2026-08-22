@@ -16,6 +16,9 @@
           packages = with pkgs; [
             nodejs
             lilypond-with-fonts
+            # post-processes PDFs: InDesign import needs crop/bleed/trim/art
+            # boxes defined, and re-embeds EPS fonts the way Adobe accepts
+            ghostscript
           ];
         };
       });

@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { mkdir, rename, rm, stat } from "node:fs/promises";
+import { mkdir, readFile, rename, rm, stat } from "node:fs/promises";
 import path from "node:path";
 
 export type Format = "eps" | "pdf" | "svg" | "png";
@@ -171,6 +171,11 @@ export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
     await rm(`${base}.pdf`, { force: true });
   }
 
+  // Make placed PDFs friendly to any InDesign "Crop to" import setting.
+  if (outputs.pdf) {
+    await stampPdfBoxes(outputs.pdf);
+  }
+
   const missing = req.formats.filter((f) => !outputs[f]);
   if (missing.length > 0) {
     return {
@@ -181,6 +186,51 @@ export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
     };
   }
   return { ok: true, outputs, previewPng };
+}
+
+/**
+ * Extract the MediaBox dimensions from a PDF's raw bytes.
+ * Ghostscript-produced PDFs keep the page dictionary uncompressed.
+ */
+async function pdfMediaBox(pdfPath: string): Promise<[number, number] | undefined> {
+  const bytes = await readFile(pdfPath, "latin1");
+  const match = bytes.match(/\/MediaBox\s*\[\s*([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s*\]/);
+  if (!match) return undefined;
+  const [x0, y0, x1, y1] = match.slice(1).map(Number);
+  return [x1 - x0, y1 - y0];
+}
+
+/**
+ * Rewrite a PDF so CropBox/BleedBox/TrimBox/ArtBox all equal the MediaBox.
+ * InDesign's Place dialog crops to whichever box the user last selected;
+ * without this, gs/LilyPond PDFs trigger "Cannot crop to bleed box".
+ */
+async function stampPdfBoxes(pdfPath: string): Promise<void> {
+  const box = await pdfMediaBox(pdfPath);
+  if (!box) return;
+  const [w, h] = box;
+  const tmp = `${pdfPath}.boxed.pdf`;
+  const outcome = await new Promise<{ code: number | null }>((resolve, reject) => {
+    const child = spawn(
+      "gs",
+      [
+        "-dBATCH", "-dNOPAUSE", "-dSAFER",
+        "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.7",
+        `-sOutputFile=${tmp}`,
+        "-c",
+        `[/CropBox [0 0 ${w} ${h}] /BleedBox [0 0 ${w} ${h}] /TrimBox [0 0 ${w} ${h}] /ArtBox [0 0 ${w} ${h}] /PAGE pdfmark`,
+        "-f", pdfPath,
+      ],
+      { stdio: ["ignore", "ignore", "pipe"], timeout: RUN_TIMEOUT_MS },
+    );
+    child.on("error", reject);
+    child.on("close", (code) => resolve({ code }));
+  });
+  if (outcome.code === 0 && (await exists(tmp))) {
+    await rename(tmp, pdfPath);
+  } else {
+    await rm(tmp, { force: true });
+  }
 }
 
 export async function lilypondVersion(): Promise<string> {

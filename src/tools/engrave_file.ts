@@ -12,8 +12,12 @@ export function makeEngraveFileTool() {
       .describe("Directory the generated assets are written to (created if missing)"),
     formats: z
       .array(z.enum(FORMATS))
-      .default(["eps"])
-      .describe("Asset formats to generate"),
+      .default(["pdf"])
+      .describe(
+        "Asset formats to generate. PDF is the format to place in InDesign " +
+          "(fonts embedded the way Adobe accepts, all PDF boxes defined); " +
+          "EPS embeds fonts in a form InDesign ignores.",
+      ),
     crop: z
       .boolean()
       .default(true)
@@ -47,8 +51,10 @@ export function makeEngraveFileTool() {
     name: "engrave_file",
     description:
       "Engrave a LilyPond (.ly) source file into publication-quality music notation assets. " +
-      "Cropped EPS/PDF/SVG are self-contained (fonts embedded or converted to outlines) and " +
-      "sized to the music, ready to place in page-layout software such as InDesign. " +
+      "Cropped assets are sized to the music, ready to place in page-layout software. " +
+      "Use PDF for InDesign placement (fonts embedded the way Adobe accepts, crop/bleed/trim/art " +
+      "boxes all defined); SVG has glyphs as outlines for the web; EPS embeds fonts in a form " +
+      "Ghostscript accepts but InDesign ignores. " +
       "On failure, `errors` carries the LilyPond diagnostics, including line numbers.",
     inputSchema,
     outputSchema,

@@ -46,6 +46,26 @@ describe("engrave", () => {
     expect(eps).toContain("%%BeginResource: font");
   });
 
+  it("stamps all PDF boxes for InDesign's Place dialog", async () => {
+    const source = path.join(dir, "triad.ly");
+    await writeFile(source, SNIPPET);
+
+    const result = await engrave({
+      source,
+      name: "triad",
+      outputDir: path.join(dir, "out"),
+      formats: ["pdf"],
+      crop: true,
+      includeDirs: [],
+    });
+
+    expect(result.ok).toBe(true);
+    const pdf = await readFile(result.outputs.pdf!, "latin1");
+    for (const box of ["CropBox", "BleedBox", "TrimBox", "ArtBox"]) {
+      expect(pdf).toContain(`/${box}`);
+    }
+  });
+
   it("produces pdf and svg in one call", async () => {
     const source = path.join(dir, "triad.ly");
     await writeFile(source, SNIPPET);
