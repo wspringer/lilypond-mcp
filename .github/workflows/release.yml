@@ -1,0 +1,45 @@
+name: Release to npm
+
+# Triggered when the Knope Bot's release PR (always from branch
+# `knope/release`) is merged into main. The bot has already updated
+# package.json + CHANGELOG.md and created the tag + GitHub release; this
+# workflow publishes the package to npm with provenance.
+#
+# Tests run inside the Nix dev shell: the native backend needs LilyPond
+# 2.26's cairo backend (distro packages are too old) plus Ghostscript,
+# exactly as in development. The wasm-backend tests are skipped here (no
+# engine dir) — trail-engine.yml exercises that path weekly against the
+# real release download.
+on:
+  pull_request:
+    types: [closed]
+    branches: [main]
+
+permissions:
+  contents: read
+  id-token: write # npm provenance via OIDC
+
+jobs:
+  publish:
+    if: github.event.pull_request.merged == true && github.head_ref == 'knope/release'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - run: nix develop --command npm ci
+      - run: nix develop --command npm run build
+      - run: nix develop --command npm test
+
+      - run: npm publish --provenance --access public
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

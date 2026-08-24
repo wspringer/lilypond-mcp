@@ -30,7 +30,8 @@
     "engine.json",
     "dist",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "LICENSING.md"
   ],
   "publishConfig": {
     "access": "public"

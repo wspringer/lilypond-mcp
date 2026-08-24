@@ -1,0 +1,14 @@
+[package]
+versioned_files = ["package.json"]
+changelog = "CHANGELOG.md"
+
+# The Knope Bot GitHub App (https://github.com/marketplace/knope-bot)
+# reads this and keeps an open release PR on the `knope/release` branch
+# with the next version + changelog. Merging that PR creates the tag +
+# GitHub release; .github/workflows/release.yml then publishes to npm.
+[bot.releases]
+enabled = true
+
+[github]
+owner = "wspringer"
+repo = "lilypond-mcp"
