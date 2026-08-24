@@ -98,7 +98,7 @@ function stderrTail(stderr: string, lines = 30): string {
  * - `lilypond -o` changes the working directory to the output directory,
  *   so include paths must be made absolute before the call.
  */
-export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
+async function engraveNative(req: EngraveRequest): Promise<EngraveResult> {
   if (req.formats.length === 0) {
     return { ok: false, outputs: {}, errors: "no formats requested" };
   }
@@ -228,7 +228,7 @@ async function stampPdfBoxes(pdfPath: string): Promise<void> {
   }
 }
 
-export async function lilypondVersion(): Promise<string> {
+async function lilypondVersionNative(): Promise<string> {
   const outcome = await new Promise<{ stdout: string }>((resolve, reject) => {
     const child = spawn("lilypond", ["--version"], { stdio: ["ignore", "pipe", "ignore"] });
     let stdout = "";
@@ -239,4 +239,58 @@ export async function lilypondVersion(): Promise<string> {
     child.on("close", () => resolve({ stdout }));
   });
   return outcome.stdout.split("\n")[0].trim();
+}
+
+// ---------------------------------------------------------------------------
+// Backend selection
+//
+// "native" spawns the installed LilyPond (cairo backend: pdf/eps/svg/png,
+// InDesign-ready PDF). "wasm" runs the lilypond-wasi engine via node:wasi —
+// zero system dependencies, svg/eps only. Default: native when an installed
+// LilyPond responds, otherwise wasm. Override with LILYPOND_MCP_BACKEND.
+// ---------------------------------------------------------------------------
+
+import { readFile as readFileForPin } from "node:fs/promises";
+import { engraveWasm, wasmEngineVersion } from "./engine/wasm-backend.js";
+import type { EnginePin } from "./engine/manifest.js";
+
+export type Backend = "native" | "wasm";
+
+let detected: Backend | undefined;
+
+async function nativeAvailable(): Promise<boolean> {
+  return new Promise((resolve) => {
+    const child = spawn("lilypond", ["--version"], { stdio: "ignore", timeout: 10_000 });
+    child.on("error", () => resolve(false));
+    child.on("close", (code) => resolve(code === 0));
+  });
+}
+
+export async function resolveBackend(): Promise<Backend> {
+  const forced = process.env.LILYPOND_MCP_BACKEND;
+  if (forced === "native" || forced === "wasm") return forced;
+  if (detected) return detected;
+  detected = (await nativeAvailable()) ? "native" : "wasm";
+  return detected;
+}
+
+async function loadPin(): Promise<EnginePin> {
+  const url = new URL("../engine.json", import.meta.url);
+  return JSON.parse(await readFileForPin(url, "utf8"));
+}
+
+export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
+  const backend = await resolveBackend();
+  if (backend === "wasm") {
+    return engraveWasm(req, await loadPin());
+  }
+  return engraveNative(req);
+}
+
+export async function lilypondVersion(): Promise<string> {
+  const backend = await resolveBackend();
+  if (backend === "wasm") {
+    return wasmEngineVersion(await loadPin());
+  }
+  return lilypondVersionNative();
 }
