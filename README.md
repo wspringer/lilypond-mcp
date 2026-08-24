@@ -61,3 +61,9 @@ npm install
 npm run build     # tsc → dist/
 npm test          # vitest; engraves real snippets, needs lilypond on PATH
 ```
+
+## Licence
+
+MIT. The server orchestrates GPL-licensed engravers (LilyPond, Ghostscript)
+as separate programs — see `LICENSING.md` for the analysis and the design
+rules that keep the boundary clean.
