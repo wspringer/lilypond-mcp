@@ -14,8 +14,9 @@ export interface EngraveRequest {
   formats: Format[];
   /**
    * Crop each asset to the music itself instead of a full page. This is
-   * what you want for assets placed in a layout; it is also the only way
-   * LilyPond 2.26 produces EPS at all.
+   * what you want for assets placed in a layout, and it also keeps the
+   * output filenames predictable (uncropped runs write per-page
+   * `NAME-1.eps`, `NAME-2.eps`, ... instead of a single `NAME.eps`).
    */
   crop: boolean;
   /** Extra include directories for \include resolution. */
@@ -27,8 +28,8 @@ export interface EngraveResult {
   /** Absolute path per successfully generated format. */
   outputs: Partial<Record<Format, string>>;
   /**
-   * Cropped PNG rendering of the same music, produced as a byproduct of
-   * the PostScript backend. Read this file to see what was engraved.
+   * Cropped PNG rendering of the same music, always produced alongside the
+   * requested formats. Read this file to see what was engraved.
    */
   previewPng?: string;
   /** LilyPond diagnostics (tail of stderr) when compilation fails. */
@@ -87,11 +88,11 @@ function stderrTail(stderr: string, lines = 30): string {
 /**
  * Engrave a LilyPond source file.
  *
- * LilyPond 2.26 quirks this function absorbs:
- * - EPS only comes out of the `ps` backend combined with `-dcrop`
- *   (`-dbackend=eps` no longer exists); requesting EPS without crop is
- *   rejected up front rather than silently producing nothing.
- * - SVG needs its own backend, so it runs as a second pass.
+ * All formats come from the cairo backend in one pass — it writes PDF,
+ * EPS, SVG and PNG directly and subsets its fonts. LilyPond 2.26 quirks
+ * this function absorbs:
+ * - uncropped runs write per-page `NAME-1.eps`; requesting EPS without
+ *   crop is rejected up front rather than producing surprising names.
  * - Cropped outputs are named `NAME.cropped.EXT` next to a full-page
  *   sibling; the cropped one is renamed over the plain name.
  * - `lilypond -o` changes the working directory to the output directory,
@@ -105,7 +106,7 @@ export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
     return {
       ok: false,
       outputs: {},
-      errors: "EPS output requires crop=true: LilyPond 2.26 only emits EPS as a cropped file",
+      errors: "EPS output requires crop=true: uncropped runs write per-page NAME-1.eps files",
     };
   }
 
@@ -126,26 +127,22 @@ export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
     source,
   ];
 
-  // The ps backend covers eps, pdf, and png in one run; svg has its own
-  // backend and needs a separate pass.
-  const psFormats = req.formats.filter((f) => f !== "svg");
-  const wantsSvg = req.formats.includes("svg");
+  // Everything comes out of the cairo backend in a single pass: PDF, EPS,
+  // SVG and PNG, with fonts subsetted. The older ps backend embedded whole
+  // font programs — its cropped EPS came out 43x larger, in a form InDesign
+  // refuses to render — and needed a Ghostscript pass for the preview PNG.
+  // (Ghostscript still runs once afterwards, only to add PDF boxes.)
+  const formats = new Set<Format>(req.formats);
+  // The cropped PNG is what lets an agent look at what it engraved; on the
+  // cairo backend it costs nothing extra.
+  formats.add("png");
 
-  if (psFormats.length > 0) {
-    const outcome = await runLilypond(
-      ["-dbackend=ps", `--formats=${psFormats.join(",")}`, ...commonArgs],
-      process.cwd(),
-    );
-    if (outcome.code !== 0) {
-      return { ok: false, outputs: {}, errors: stderrTail(outcome.stderr) };
-    }
-  }
-
-  if (wantsSvg) {
-    const outcome = await runLilypond(["--formats=svg", ...commonArgs], process.cwd());
-    if (outcome.code !== 0) {
-      return { ok: false, outputs: {}, errors: stderrTail(outcome.stderr) };
-    }
+  const outcome = await runLilypond(
+    ["-dbackend=cairo", `--formats=${[...formats].join(",")}`, ...commonArgs],
+    process.cwd(),
+  );
+  if (outcome.code !== 0) {
+    return { ok: false, outputs: {}, errors: stderrTail(outcome.stderr) };
   }
 
   const outputs: Partial<Record<Format, string>> = {};
@@ -156,22 +153,22 @@ export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
     }
   }
 
-  // Keep the cropped PNG as a preview; drop the PostScript intermediate
-  // and any full-page leftovers nobody asked for.
+  // Keep the cropped PNG as a preview, then drop the full-page leftovers
+  // and any format the caller did not ask for.
   let previewPng = outputs.png;
   const strayPng = `${base}.cropped.png`;
   if (!previewPng && (await exists(strayPng))) {
     previewPng = `${base}.preview.png`;
     await rename(strayPng, previewPng);
   }
-  for (const stray of [`${base}.ps`, `${base}.cropped.pdf`, `${base}.cropped.svg`, `${base}.cropped.png`]) {
-    await rm(stray, { force: true });
-  }
-  if (!req.formats.includes("pdf")) {
-    await rm(`${base}.pdf`, { force: true });
+  for (const ext of ["pdf", "eps", "svg", "png"] as const) {
+    await rm(`${base}.cropped.${ext}`, { force: true });
+    if (!req.formats.includes(ext)) {
+      await rm(`${base}.${ext}`, { force: true });
+    }
   }
 
-  // Make placed PDFs friendly to any InDesign "Crop to" import setting.
+  // Cairo emits only a MediaBox; InDesign wants the others spelled out.
   if (outputs.pdf) {
     await stampPdfBoxes(outputs.pdf);
   }
@@ -189,27 +186,24 @@ export async function engrave(req: EngraveRequest): Promise<EngraveResult> {
 }
 
 /**
- * Extract the MediaBox dimensions from a PDF's raw bytes.
- * Ghostscript-produced PDFs keep the page dictionary uncompressed.
- */
-async function pdfMediaBox(pdfPath: string): Promise<[number, number] | undefined> {
-  const bytes = await readFile(pdfPath, "latin1");
-  const match = bytes.match(/\/MediaBox\s*\[\s*([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s*\]/);
-  if (!match) return undefined;
-  const [x0, y0, x1, y1] = match.slice(1).map(Number);
-  return [x1 - x0, y1 - y0];
-}
-
-/**
- * Rewrite a PDF so CropBox/BleedBox/TrimBox/ArtBox all equal the MediaBox.
- * InDesign's Place dialog crops to whichever box the user last selected;
- * without this, gs/LilyPond PDFs trigger "Cannot crop to bleed box".
+ * Give a PDF explicit CropBox/BleedBox/TrimBox/ArtBox entries matching its
+ * MediaBox.
+ *
+ * Cairo writes only a MediaBox. The PDF spec says the others then *default*
+ * to it, but InDesign does not apply that default: with the Place dialog
+ * set to "Crop to: Bleed box" it refuses the file outright ("the bleed box
+ * is not defined, or is empty"). Ghostscript is the least-bad way to add
+ * them — rewriting the page dictionary by hand would invalidate the xref
+ * table.
  */
 async function stampPdfBoxes(pdfPath: string): Promise<void> {
-  const box = await pdfMediaBox(pdfPath);
-  if (!box) return;
-  const [w, h] = box;
+  const bytes = await readFile(pdfPath, "latin1");
+  const match = bytes.match(/\/MediaBox\s*\[\s*([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s*\]/);
+  if (!match) return;
+  const [x0, y0, x1, y1] = match.slice(1).map(Number);
+  const box = `[${x0} ${y0} ${x1} ${y1}]`;
   const tmp = `${pdfPath}.boxed.pdf`;
+
   const outcome = await new Promise<{ code: number | null }>((resolve, reject) => {
     const child = spawn(
       "gs",
@@ -218,7 +212,7 @@ async function stampPdfBoxes(pdfPath: string): Promise<void> {
         "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.7",
         `-sOutputFile=${tmp}`,
         "-c",
-        `[/CropBox [0 0 ${w} ${h}] /BleedBox [0 0 ${w} ${h}] /TrimBox [0 0 ${w} ${h}] /ArtBox [0 0 ${w} ${h}] /PAGE pdfmark`,
+        `[/CropBox ${box} /BleedBox ${box} /TrimBox ${box} /ArtBox ${box} /PAGE pdfmark`,
         "-f", pdfPath,
       ],
       { stdio: ["ignore", "ignore", "pipe"], timeout: RUN_TIMEOUT_MS },
@@ -226,6 +220,7 @@ async function stampPdfBoxes(pdfPath: string): Promise<void> {
     child.on("error", reject);
     child.on("close", (code) => resolve({ code }));
   });
+
   if (outcome.code === 0 && (await exists(tmp))) {
     await rename(tmp, pdfPath);
   } else {
