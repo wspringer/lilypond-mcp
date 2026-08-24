@@ -1,0 +1,12 @@
+{
+  "repository": "wspringer/lilypond-wasi",
+  "tag": "stable/2.26.1-p0.1.2",
+  "sha256": {
+    "lilypond-wasi-2.26.1-stable.wasm": "3239122daacb331f6d1dee8ccc56e01a16901a9acb60f17623b00f2e3f213390",
+    "lilypond-wasi-assets-2.26.1-stable.tar.gz": "bd8ff7ca6682e1b1d5744c5b7e9ca7f0439f11b6fb5ec988d8c6538179750489",
+    "lilypond-wasi-bytecode-2.26.1-stable.tar.gz": "1a7915c53797f4455f05a3c8f61fc166971690688f6c906931737a6c267a054a",
+    "lilypond-wasi-guile-2.26.1-stable.tar.gz": "1d56ddcf110afb5e86663a0f108aff517f2f0a5ffc2da966fb03e912dc5c392c",
+    "provenance.json": "e08a11541ea3f0ac547042eaa94374ec0c30a1ee69cba5dcc780849b25df5d61",
+    "runtime-manifest.json": "1a6e50452342db38793783f3b248b61afc151a5c56b402be49d929fe0f948d6b"
+  }
+}

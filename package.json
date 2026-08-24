@@ -27,6 +27,7 @@
     "lilypond-mcp": "dist/index.js"
   },
   "files": [
+    "engine.json",
     "dist",
     "README.md",
     "LICENSE"

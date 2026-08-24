@@ -1,0 +1,96 @@
+# Trail lilypond-wasi's stable releases.
+#
+# Weekly: pin the newest stable/* release into engine.json (tag + sha256 of
+# every asset), prove the wasm backend can engrave with it — downloaded
+# from the release like a real consumer, no Nix — and open a PR.
+#
+# Verification runs inside this job because PRs opened with GITHUB_TOKEN
+# don't trigger other workflows (learned in lilypond-wasi).
+name: trail engine
+
+on:
+  schedule:
+    - cron: "0 7 * * 1" # Mondays, after lilypond-wasi's own update run
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  trail:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Re-pin to the newest stable release
+        run: node scripts/update-engine-pin.mjs
+
+      - name: Anything new?
+        id: changed
+        run: |
+          if git diff --quiet engine.json; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "engine.json already at the newest stable release"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "tag=$(node -p "require('./engine.json').tag")" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build
+        if: steps.changed.outputs.changed == 'true'
+        run: npm ci && npm run build
+
+      - name: Engrave with the newly pinned engine (real download)
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/trail && cd /tmp/trail
+          printf '\\version "2.26.0"\n\\header { tagline = ##f }\n{ c%s e%s g%s }\n' "'" "'" "'" > t.ly
+          cat > run.mjs <<'EOF'
+          import { engraveWasm } from "${{ github.workspace }}/dist/engine/wasm-backend.js";
+          import { readFile } from "node:fs/promises";
+          const pin = JSON.parse(await readFile("${{ github.workspace }}/engine.json", "utf8"));
+          const r = await engraveWasm(
+            { source: "/tmp/trail/t.ly", name: "t", outputDir: "/tmp/trail/out",
+              formats: ["svg", "eps"], crop: true, includeDirs: [] },
+            pin,
+          );
+          console.log(JSON.stringify(r, null, 1));
+          if (!r.ok) process.exit(1);
+          EOF
+          node run.mjs
+          test -s out/t.svg && test -s out/t.eps
+          echo "engraved svg + eps with the pinned release"
+
+      - name: Rebase so the PR carries only engine.json
+        if: steps.changed.outputs.changed == 'true'
+        run: |
+          cp engine.json "$RUNNER_TEMP/engine.json"
+          git fetch origin ${{ github.ref_name }}
+          git reset --hard "origin/${{ github.ref_name }}"
+          cp "$RUNNER_TEMP/engine.json" engine.json
+
+      - name: Open the pull request
+        if: steps.changed.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
+          branch: trail/engine
+          add-paths: engine.json
+          commit-message: "feat: trail engine to ${{ steps.changed.outputs.tag }}"
+          title: "Engine → ${{ steps.changed.outputs.tag }}"
+          body: |
+            Re-pins the wasm engine to
+            [`${{ steps.changed.outputs.tag }}`](https://github.com/wspringer/lilypond-wasi/releases/tag/${{ steps.changed.outputs.tag }}).
+
+            Verified on this runner before opening: the release was
+            downloaded like a real consumer (no Nix), checksums verified,
+            and the backend engraved SVG + EPS with it.
+          labels: engine
