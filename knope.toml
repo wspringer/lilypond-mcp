@@ -12,3 +12,9 @@ enabled = true
 [github]
 owner = "wspringer"
 repo = "lilypond-mcp"
+
+# Change files are the only release-semantics source — commit subjects
+# (including squash-merge PR titles) no longer bump versions or write
+# changelog entries.
+[changes]
+ignore_conventional_commits = true

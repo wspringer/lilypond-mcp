@@ -25,12 +25,12 @@ story and `LICENSING.md` for why this repo is MIT around a GPL engine.
   ```
 
   Bump types: `major` (breaking), `minor` (feature), `patch` (fix).
-  Change files are the source of release semantics: they survive squash
-  merges, allow several entries per PR, and Knope consumes (deletes) them
-  at release. Conventional PR titles (`fix:`, `feat:`, `ci:`) remain good
-  hygiene — squash merges use the title as the commit subject — but only
-  repo-internal changes (`ci:`, `chore:`, `docs:` on non-shipped files)
-  should rely on the title alone.
+  Change files are the **only** source of release semantics
+  (`[changes] ignore_conventional_commits = true` in knope.toml): commit
+  subjects never bump versions or write changelog entries. A user-facing
+  change without a change file silently ships undocumented — don't.
+  Conventional PR titles (`fix:`, `feat:`, `ci:`) remain as history
+  hygiene, nothing more.
 - **Releases:** the Knope bot keeps a release PR open; merging it tags,
   writes the changelog, and `release.yml` publishes to npm via trusted
   publishing (OIDC). Never `npm publish` by hand.
