@@ -50,17 +50,32 @@ async function sha256Of(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-async function extractTarGz(tarball: string, into: string): Promise<void> {
-  await mkdir(into, { recursive: true });
-  await new Promise<void>((resolve, reject) => {
-    const child = spawn("tar", ["-xzf", tarball, "-C", into], { stdio: ["ignore", "ignore", "pipe"] });
+function run(cmd: string, args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
     let stderr = "";
     child.stderr.on("data", (c) => (stderr += c));
     child.on("error", reject);
     child.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`tar failed (${code}): ${stderr.trim()}`)),
+      code === 0 ? resolve() : reject(new Error(`${cmd} failed (${code}): ${stderr.trim()}`)),
     );
   });
+}
+
+async function extractTarGz(tarball: string, into: string): Promise<void> {
+  await mkdir(into, { recursive: true });
+  await run("tar", ["-xzf", tarball, "-C", into]);
+  // The tarballs come from the Nix store and carry read-only modes (0444
+  // files, non-writable dirs). Left as-is, the user cannot evict their own
+  // cache and we cannot heal a broken one — restore owner-write.
+  await run("chmod", ["-R", "u+w", into]);
+}
+
+/** Remove a cache dir even when a previous extraction left it read-only. */
+async function forceRemove(p: string): Promise<void> {
+  if (!(await exists(p))) return;
+  await run("chmod", ["-R", "u+w", p]).catch(() => undefined);
+  await rm(p, { recursive: true, force: true });
 }
 
 export interface EngineDir {
@@ -87,7 +102,11 @@ export async function ensureEngine(pin: EnginePin): Promise<EngineDir> {
 
   // Build into a temp sibling, promote atomically on success.
   const work = `${dir}.download-${process.pid}`;
-  await rm(work, { recursive: true, force: true });
+  await forceRemove(work);
+  // A dir without the .ready marker is a corrupt or interrupted previous
+  // attempt (e.g. a partially deleted cache) — clear it so the promote
+  // below cannot collide with wreckage.
+  await forceRemove(dir);
   await mkdir(work, { recursive: true });
   try {
     const base = `https://github.com/${pin.repository}/releases/download/${pin.tag}`;
@@ -134,7 +153,7 @@ export async function ensureEngine(pin: EnginePin): Promise<EngineDir> {
     const manifestOut = JSON.parse(await readFile(path.join(dir, "manifest.json"), "utf8"));
     return { dir, manifest: manifestOut };
   } finally {
-    await rm(work, { recursive: true, force: true });
+    await forceRemove(work);
   }
 }
 
