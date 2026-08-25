@@ -65,7 +65,13 @@ jobs:
           console.log(JSON.stringify(r, null, 1));
           if (!r.ok) process.exit(1);
           EOF
-          node run.mjs
+          node --version
+          if ! node run.mjs; then
+            echo "::group::debug re-run (--verbose engine log)"
+            LILYPOND_MCP_DEBUG_JOB=1 LILYPOND_MCP_EXTRA_ARGS="--verbose" node run.mjs || true
+            echo "::endgroup::"
+            exit 1
+          fi
           test -s out/t.svg && test -s out/t.eps
           echo "engraved svg + eps with the pinned release"
 

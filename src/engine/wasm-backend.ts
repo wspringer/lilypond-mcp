@@ -82,6 +82,12 @@ function runWorker(
   });
 }
 
+/** Diagnostics for a nonzero engine exit: stderr tail AND the exit code —
+ * a quiet death (no stderr past the banner) must still name the code. */
+function engineFailure(reply: WorkerReply): string {
+  return [reply.stderr, `wasm engine exited ${reply.exitCode}`].filter(Boolean).join("\n");
+}
+
 async function runEngine(job: object): Promise<WorkerReply> {
   const first = await runWorker(job, { withExnrefFlag: true });
   const second = first.badOption ? await runWorker(job, { withExnrefFlag: false }) : first;
@@ -140,9 +146,13 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       includeArgs.push(`-I${guest}`);
     });
 
+    // Internal debugging affordance: extra engine arguments, space-split
+    // (e.g. LILYPOND_MCP_EXTRA_ARGS="--verbose" for LilyPond's debug log).
+    const extraArgs = (process.env.LILYPOND_MCP_EXTRA_ARGS ?? "").split(" ").filter(Boolean);
     const baseArgs = (formatArgs: string[]) => [
       manifest.argv0,
       "-dno-point-and-click",
+      ...extraArgs,
       ...(req.crop ? ["-dcrop"] : []),
       ...includeArgs,
       ...formatArgs,
@@ -168,13 +178,13 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       fmts.add("png"); // preview, near-free on the cairo backend
       const reply = await runEngine(job(["-dbackend=cairo", `--formats=${[...fmts].join(",")}`]));
       if (reply.exitCode !== 0) {
-        return { ok: false, outputs: {}, errors: reply.stderr || `wasm engine exited ${reply.exitCode}` };
+        return { ok: false, outputs: {}, errors: engineFailure(reply) };
       }
     } else {
       if (req.formats.includes("svg")) {
         const reply = await runEngine(job(["--formats=svg"]));
         if (reply.exitCode !== 0) {
-          return { ok: false, outputs: {}, errors: reply.stderr || `wasm engine exited ${reply.exitCode}` };
+          return { ok: false, outputs: {}, errors: engineFailure(reply) };
         }
       }
       if (req.formats.includes("eps")) {
