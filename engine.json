@@ -1,12 +1,12 @@
 {
   "repository": "wspringer/lilypond-wasi",
-  "tag": "stable/2.26.1-p0.1.2",
+  "tag": "stable/2.26.1-p0.1.3",
   "sha256": {
-    "lilypond-wasi-2.26.1-stable.wasm": "3239122daacb331f6d1dee8ccc56e01a16901a9acb60f17623b00f2e3f213390",
-    "lilypond-wasi-assets-2.26.1-stable.tar.gz": "bd8ff7ca6682e1b1d5744c5b7e9ca7f0439f11b6fb5ec988d8c6538179750489",
-    "lilypond-wasi-bytecode-2.26.1-stable.tar.gz": "1a7915c53797f4455f05a3c8f61fc166971690688f6c906931737a6c267a054a",
-    "lilypond-wasi-guile-2.26.1-stable.tar.gz": "1d56ddcf110afb5e86663a0f108aff517f2f0a5ffc2da966fb03e912dc5c392c",
-    "provenance.json": "e08a11541ea3f0ac547042eaa94374ec0c30a1ee69cba5dcc780849b25df5d61",
-    "runtime-manifest.json": "1a6e50452342db38793783f3b248b61afc151a5c56b402be49d929fe0f948d6b"
+    "lilypond-wasi-2.26.1-stable.wasm": "7ba68ededb5165bfba836c07d0c06056c957b5ab1089340d70610239f0ddc3b4",
+    "lilypond-wasi-assets-2.26.1-stable.tar.gz": "0e631bbb58bd9b796c70880a2edc56caf88ded976f1f3306395166d88c85fea6",
+    "lilypond-wasi-bytecode-2.26.1-stable.tar.gz": "5b1567d22959db7c80e1e6fe23cbbc3cef3e4e80cf7ada716f2e7dea0bd9634f",
+    "lilypond-wasi-guile-2.26.1-stable.tar.gz": "80904d4094da1d65767a8ed116981f95ecf6f3b7ed013186353385b3c162419e",
+    "provenance.json": "b157224c58775dc861afb11e047f14f678c5da0c1fd5c4726289a16155b0abdc",
+    "runtime-manifest.json": "5f7d8839f7f0a8a8f165a288aba11b7dc76d6b3e93e7d4a2aa42b647dd1a52d5"
   }
 }
