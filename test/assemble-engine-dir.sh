@@ -58,7 +58,7 @@ cat > "$dest/manifest.json" <<EOF
     "TMPDIR": "/work/tmp",
     "XDG_CACHE_HOME": "/work/cache"
   },
-  "formats": ["svg", "eps"]
+  "formats": ["pdf", "png", "svg", "eps"]
 }
 EOF
 echo "engine dir ready: $dest (LilyPond ${version})"
