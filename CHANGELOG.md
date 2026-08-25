@@ -2,6 +2,12 @@
 
 Maintained by Knope from conventional commits.
 
+## 0.1.2 (2026-08-25)
+
+### Fixes
+
+- engine cache is evictable and self-healing
+
 ## 0.1.1 (2026-08-25)
 
 ### Features
