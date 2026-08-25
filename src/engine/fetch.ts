@@ -97,8 +97,11 @@ async function extractTarGz(tarball: string, into: string): Promise<void> {
   // The tarballs carry Nix-store modes, including non-writable directories.
   // GNU tar applies directory permissions as it goes and then cannot create
   // files inside them; --delay-directory-restore defers that to the end.
-  // bsdtar (macOS, Windows) already defers and doesn't know the flag.
-  const flags = (await isGnuTar()) ? ["--delay-directory-restore"] : [];
+  // --force-local: GNU tar reads "C:\..." as a remote host named C —
+  // Windows PATHs (Git for Windows) can put GNU tar ahead of the system
+  // bsdtar. bsdtar (macOS, Windows system tar) knows neither flag and
+  // needs neither.
+  const flags = (await isGnuTar()) ? ["--delay-directory-restore", "--force-local"] : [];
   await run("tar", ["-xzf", tarball, "-C", into, ...flags]);
   // The tarballs come from the Nix store and carry read-only modes (0444
   // files, non-writable dirs). Left as-is, the user cannot evict their own
