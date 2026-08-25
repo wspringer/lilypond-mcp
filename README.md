@@ -1,5 +1,7 @@
 # lilypond-mcp
 
+[![npm](https://img.shields.io/npm/v/lilypond-mcp.svg)](https://www.npmjs.com/package/lilypond-mcp)
+
 MCP server that engraves [GNU LilyPond](https://lilypond.org) sources into
 placeable assets: cropped, self-contained EPS, PDF, SVG, and PNG, sized to the
 music rather than a full page — ready to drop into page-layout software such
