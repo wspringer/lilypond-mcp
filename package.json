@@ -1,6 +1,6 @@
 {
   "name": "lilypond-mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server that engraves GNU LilyPond sources into cropped EPS, PDF, SVG, and PNG assets",
   "type": "module",
   "license": "MIT",
