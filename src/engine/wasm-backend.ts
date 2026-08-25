@@ -63,7 +63,7 @@ function runWorker(
     child.stdout.on("data", (c) => (stdout += c));
     child.stderr.on("data", (c) => (stderr += c));
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       // Node without this experimental flag (it graduated) exits 9 with a
       // "bad option" message before our code runs — detect and let the
       // caller retry flagless.
@@ -71,12 +71,23 @@ function runWorker(
         resolve({ badOption: true });
         return;
       }
+      const tail = stderr.trim().split("\n").slice(-30).join("\n");
+      // No JSON on stdout means the worker process itself died (segfault,
+      // OOM kill, V8 fatal) before it could report — do not mistake that
+      // for a quiet engine exit.
+      if (stdout.trim() === "") {
+        reject(new Error(
+          `engine worker crashed (exit ${code}, signal ${signal ?? "none"}) — ` +
+          `this is a Node/V8-level failure, not a LilyPond error. Engine stderr tail:\n${tail}`,
+        ));
+        return;
+      }
       try {
-        const reply: WorkerReply = JSON.parse(stdout || "{}");
-        reply.stderr = stderr.trim().split("\n").slice(-30).join("\n");
+        const reply: WorkerReply = JSON.parse(stdout);
+        reply.stderr = tail;
         resolve({ reply, badOption: false });
       } catch {
-        reject(new Error(`engine worker produced no result (exit ${code}): ${stderr.slice(-400)}`));
+        reject(new Error(`engine worker produced unparseable output (exit ${code}): ${stderr.slice(-400)}`));
       }
     });
   });
