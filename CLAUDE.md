@@ -37,10 +37,12 @@ story and `LICENSING.md` for why this repo is MIT around a GPL engine.
 
 ## Gotchas that cost real time
 
-- **Node ≥ 24 on Linux for the wasm backend** — `node:wasi` corrupts
-  memory on x86_64 Linux in older lines (nodejs/node#53087); the backend
-  refuses there with a pointer. Workflows that run the wasm engine must
-  use Node 24.
+- **`node:wasi` fast calls corrupt memory from Node 22.21.1** (the
+  WasiFunction fast-call signature backport, nodejs/node#59600): the
+  engine segfaults during Guile startup, all platforms, with empty
+  stderr. The worker always runs with `--no-turbo-fast-api-calls`, which
+  sidesteps it — never remove that flag without re-bisecting. (Node 24
+  is unaffected either way.)
 - **PRs opened with `GITHUB_TOKEN` (e.g. by trail-engine.yml) don't
   trigger workflows**, so required checks never run on them. Nudge with
   an empty commit pushed by a real user, or set a `GH_PAT` secret (the

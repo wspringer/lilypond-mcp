@@ -52,7 +52,16 @@ function runWorker(
   if (!workerPath) {
     throw new Error(`engine worker not built — run npm run build (looked at: ${candidates.join(", ")})`);
   }
-  const execArgv = opts.withExnrefFlag ? ["--experimental-wasm-exnref"] : [];
+  // --no-turbo-fast-api-calls, always: Node's WASI syscall "fast calls"
+  // corrupt memory from 22.21.1 (the WasiFunction fast-call signature
+  // backport, nodejs/node#59600) — the engine segfaults during Guile
+  // startup, on every platform. Disabling the fast path fixes it; the
+  // cost is noise next to an engrave, and it is harmless where the bug
+  // is absent. Bisected 2026-08-25: 22.21.0 ok, 22.21.1 crash, 24 ok.
+  const execArgv = [
+    "--no-turbo-fast-api-calls",
+    ...(opts.withExnrefFlag ? ["--experimental-wasm-exnref"] : []),
+  ];
   return new Promise((resolve, reject) => {
     const child = spawn(
       process.execPath,
@@ -109,20 +118,6 @@ async function runEngine(job: object): Promise<WorkerReply> {
 }
 
 export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<EngraveResult> {
-  // Node's WASI syscall fast path corrupts memory on x86_64 Linux before
-  // Node 24 (nodejs/node#53087, shipped in 22.2.0, closed unfixed) — the
-  // engine segfaults during Guile startup. Refuse with a pointer instead.
-  const nodeMajor = Number(process.versions.node.split(".")[0]);
-  if (process.platform === "linux" && nodeMajor < 24) {
-    return {
-      ok: false,
-      outputs: {},
-      errors:
-        `the wasm engine needs Node >= 24 on Linux (you are on ${process.version}): ` +
-        `node:wasi crashes there on older lines (nodejs/node#53087). ` +
-        `Upgrade Node, or install LilyPond to use the native backend.`,
-    };
-  }
   const { dir, manifest } = await ensureEngine(pin);
 
   const unsupported = req.formats.filter((f) => !manifest.formats.includes(f));
