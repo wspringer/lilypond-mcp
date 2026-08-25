@@ -65,10 +65,39 @@ jobs:
 
       - run: npx vitest run test/wasm-backend.test.ts
 
-      # DEBUG (temporary): fontconfig scan/cache tracing on failure
-      - name: Fontconfig debug re-run
+      # DEBUG (temporary): can the guest readdir the fonts mount at all?
+      - name: In-guest readdir probe
         if: failure()
         run: |
-          LILYPOND_MCP_DEBUG_JOB=1 \
-          LILYPOND_MCP_EXTRA_ENV='{"FC_DEBUG":"144"}' \
-          npx vitest run test/wasm-backend.test.ts -t "engraves svg" || true
+          cat > probe.ly <<'EOF'
+          \version "2.26.0"
+          #(begin
+            (define (ls p)
+              (format (current-error-port) "LS ~a:~%" p)
+              (catch #t
+                (lambda ()
+                  (let ((d (opendir p)))
+                    (let loop ()
+                      (let ((e (readdir d)))
+                        (unless (eof-object? e)
+                          (format (current-error-port) "  entry: ~a~%" e)
+                          (loop))))
+                    (closedir d)))
+                (lambda args
+                  (format (current-error-port) "  ERROR: ~a~%" args))))
+            (ls "/lilypond/fonts")
+            (ls "/lilypond/fonts/otf"))
+          { c'1 }
+          EOF
+          node - <<'JS' || true
+          const { engraveWasm } = await import("./dist/engine/wasm-backend.js");
+          const { readFile } = await import("node:fs/promises");
+          const pin = JSON.parse(await readFile("engine.json", "utf8"));
+          process.env.LILYPOND_MCP_DEBUG_JOB = "1";
+          const r = await engraveWasm(
+            { source: "probe.ly", name: "probe", outputDir: "probe-out",
+              formats: ["svg"], crop: true, includeDirs: [] },
+            pin,
+          ).catch((e) => ({ ok: false, errors: String(e) }));
+          console.log(r.errors ?? "engrave ok");
+          JS
