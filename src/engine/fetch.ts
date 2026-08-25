@@ -61,7 +61,7 @@ function run(
       stdio: [opts.stdinFile ? "pipe" : "ignore", "ignore", "pipe"],
     });
     let stderr = "";
-    child.stderr.on("data", (c) => (stderr += c));
+    child.stderr!.on("data", (c) => (stderr += c));
     child.on("error", reject);
     child.on("close", (code) =>
       code === 0 ? resolve() : reject(new Error(`${cmd} failed (${code}): ${stderr.trim()}`)),
