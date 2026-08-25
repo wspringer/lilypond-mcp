@@ -14,9 +14,10 @@ import type { EnginePin } from "./manifest.js";
  * installed LilyPond, no Nix, no Ghostscript. The engine is fetched once
  * into a cache and executed in a child Node process via node:wasi.
  *
- * Formats: what the release manifest declares (svg, eps). PDF and PNG need
- * Ghostscript or cairo, neither of which exists in the wasm engine — the
- * native backend remains the path for those (and for InDesign-ready PDF).
+ * Formats: what the release manifest declares. Engines from p0.1.3 carry
+ * the cairo backend (pdf, png, svg, eps — InDesign-ready PDF included);
+ * earlier engines do svg + eps only, with the native backend as the path
+ * for the rest.
  */
 
 const RUN_TIMEOUT_MS = 120_000;
@@ -108,6 +109,20 @@ async function runEngine(job: object): Promise<WorkerReply> {
 }
 
 export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<EngraveResult> {
+  // Node's WASI syscall fast path corrupts memory on x86_64 Linux before
+  // Node 24 (nodejs/node#53087, shipped in 22.2.0, closed unfixed) — the
+  // engine segfaults during Guile startup. Refuse with a pointer instead.
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  if (process.platform === "linux" && nodeMajor < 24) {
+    return {
+      ok: false,
+      outputs: {},
+      errors:
+        `the wasm engine needs Node >= 24 on Linux (you are on ${process.version}): ` +
+        `node:wasi crashes there on older lines (nodejs/node#53087). ` +
+        `Upgrade Node, or install LilyPond to use the native backend.`,
+    };
+  }
   const { dir, manifest } = await ensureEngine(pin);
 
   const unsupported = req.formats.filter((f) => !manifest.formats.includes(f));
