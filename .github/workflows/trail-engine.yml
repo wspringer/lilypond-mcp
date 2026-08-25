@@ -77,13 +77,26 @@ jobs:
           test -s out/t.svg && test -s out/t.eps
           echo "engraved svg + eps with the pinned release"
 
-      - name: Rebase so the PR carries only engine.json
+      - name: Rebase so the PR carries only the pin and its change file
         if: steps.changed.outputs.changed == 'true'
         run: |
           cp engine.json "$RUNNER_TEMP/engine.json"
           git fetch origin ${{ github.ref_name }}
           git reset --hard "origin/${{ github.ref_name }}"
           cp "$RUNNER_TEMP/engine.json" engine.json
+          # Change file (Knope changeset): the release-semantics carrier —
+          # survives the squash merge regardless of the PR title.
+          mkdir -p .changeset
+          cat > .changeset/trail-engine.md <<EOF
+          ---
+          default: minor
+          ---
+
+          #### Engine updated to ${{ steps.changed.outputs.tag }}
+
+          The bundled WebAssembly engine now tracks
+          [lilypond-wasi ${{ steps.changed.outputs.tag }}](https://github.com/wspringer/lilypond-wasi/releases/tag/${{ steps.changed.outputs.tag }}).
+          EOF
 
       - name: Open the pull request
         if: steps.changed.outputs.changed == 'true'
@@ -91,10 +104,12 @@ jobs:
         with:
           token: ${{ secrets.GH_PAT || secrets.GITHUB_TOKEN }}
           branch: trail/engine
-          add-paths: engine.json
+          add-paths: |
+            engine.json
+            .changeset/trail-engine.md
           commit-message: "feat: trail engine to ${{ steps.changed.outputs.tag }}"
-          # Conventional title on purpose: squash merges use it as the
-          # commit subject, and Knope reads release semantics from that.
+          # The change file above carries the release semantics; the
+          # conventional title is hygiene for the squashed commit subject.
           title: "feat: trail engine to ${{ steps.changed.outputs.tag }}"
           body: |
             Re-pins the wasm engine to
