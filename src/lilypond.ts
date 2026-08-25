@@ -194,7 +194,7 @@ async function engraveNative(req: EngraveRequest): Promise<EngraveResult> {
  * set to "Crop to: Bleed box" it refuses the file outright ("the bleed box
  * is not defined, or is empty").
  */
-async function stampPdfBoxes(pdfPath: string): Promise<void> {
+export async function stampPdfBoxes(pdfPath: string): Promise<void> {
   const { PDFDocument } = await import("pdf-lib");
   const doc = await PDFDocument.load(await readFile(pdfPath));
   for (const page of doc.getPages()) {
