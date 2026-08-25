@@ -113,7 +113,15 @@ async function runEngine(job: object): Promise<WorkerReply> {
   const first = await runWorker(job, { withExnrefFlag: true });
   const second = first.badOption ? await runWorker(job, { withExnrefFlag: false }) : first;
   if (!second.reply) throw new Error("engine worker failed twice");
-  if (second.reply.error) throw new Error(second.reply.error);
+  if (second.reply.error) {
+    // A trap (RuntimeError) aborts the run, but whatever LilyPond said
+    // before it is the actual diagnosis — keep the stderr tail attached.
+    throw new Error(
+      second.reply.stderr
+        ? `${second.reply.error}\nEngine stderr tail:\n${second.reply.stderr}`
+        : second.reply.error,
+    );
+  }
   return second.reply;
 }
 
