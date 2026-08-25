@@ -93,7 +93,9 @@ jobs:
           branch: trail/engine
           add-paths: engine.json
           commit-message: "feat: trail engine to ${{ steps.changed.outputs.tag }}"
-          title: "Engine → ${{ steps.changed.outputs.tag }}"
+          # Conventional title on purpose: squash merges use it as the
+          # commit subject, and Knope reads release semantics from that.
+          title: "feat: trail engine to ${{ steps.changed.outputs.tag }}"
           body: |
             Re-pins the wasm engine to
             [`${{ steps.changed.outputs.tag }}`](https://github.com/wspringer/lilypond-wasi/releases/tag/${{ steps.changed.outputs.tag }}).
