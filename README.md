@@ -56,10 +56,10 @@ the source and retry.
 | formats | pdf, eps, svg, png | pdf, eps, svg, png (engine ≥ p0.1.3; earlier engines: svg, eps) |
 | engine | whatever is installed | [lilypond-wasi](https://github.com/wspringer/lilypond-wasi) release, pinned in `engine.json` |
 
-(Node 22.21.1 through 23.x ship a `node:wasi` fast-call regression that
-segfaults wasm engines — [nodejs/node#59600](https://github.com/nodejs/node/pull/59600);
-the server sidesteps it automatically by running the engine with
-`--no-turbo-fast-api-calls`, so any Node ≥ 20 works.)
+(Node 22 or newer: the engine uses WebAssembly exception handling that
+V8 first shipped in Node 22. The `node:wasi` fast-call regression in
+Node 22.21.1+ — [nodejs/node#59600](https://github.com/nodejs/node/pull/59600) —
+is sidestepped automatically with `--no-turbo-fast-api-calls`.)
 
 The server picks automatically: native when an installed LilyPond responds,
 wasm otherwise. Force one with `LILYPOND_MCP_BACKEND=native|wasm`.
