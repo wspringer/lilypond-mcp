@@ -3,7 +3,10 @@ name: Release to npm
 # Triggered when the Knope Bot's release PR (always from branch
 # `knope/release`) is merged into main. The bot has already updated
 # package.json + CHANGELOG.md and created the tag + GitHub release; this
-# workflow publishes the package to npm with provenance.
+# workflow publishes the package to npm via OIDC trusted publishing — no
+# token exists anywhere; GitHub proves the workflow's identity to npm with
+# a short-lived signed claim, and provenance attestation is automatic.
+# (Configured on npmjs.com: package Settings -> Trusted Publisher.)
 #
 # Tests run inside the Nix dev shell: the native backend needs LilyPond
 # 2.26's cairo backend (distro packages are too old) plus Ghostscript,
@@ -33,13 +36,11 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24 # bundles npm >= 11.5.1, required for trusted publishing
           registry-url: https://registry.npmjs.org
 
       - run: nix develop --command npm ci
       - run: nix develop --command npm run build
       - run: nix develop --command npm test
 
-      - run: npm publish --provenance --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - run: npm publish --access public
