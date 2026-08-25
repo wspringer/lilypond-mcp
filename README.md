@@ -6,9 +6,8 @@ MCP server that engraves [GNU LilyPond](https://lilypond.org) sources into
 placeable assets: cropped PDF, EPS, SVG, and PNG, sized to the music rather
 than a full page — ready to drop into page-layout software such as InDesign.
 
-Nothing to install beyond Node (24 or newer): without a local LilyPond,
-the server fetches a WebAssembly build of the engine and engraves with
-that.
+Nothing to install beyond Node: without a local LilyPond, the server
+fetches a WebAssembly build of the engine and engraves with that.
 
 ## Quick start
 
@@ -53,13 +52,14 @@ the source and retry.
 
 | | native | wasm |
 |---|---|---|
-| needs | `lilypond` (≥ 2.26) and `gs` on `PATH` | Node ≥ 24 |
+| needs | `lilypond` (≥ 2.26) and `gs` on `PATH` | nothing |
 | formats | pdf, eps, svg, png | pdf, eps, svg, png (engine ≥ p0.1.3; earlier engines: svg, eps) |
 | engine | whatever is installed | [lilypond-wasi](https://github.com/wspringer/lilypond-wasi) release, pinned in `engine.json` |
 
-(Node ≥ 24 for the wasm backend because `node:wasi` corrupts memory on
-x86_64 Linux in older lines — [nodejs/node#53087](https://github.com/nodejs/node/issues/53087);
-the server detects this and says so rather than crashing.)
+(Node 22.21.1 through 23.x ship a `node:wasi` fast-call regression that
+segfaults wasm engines — [nodejs/node#59600](https://github.com/nodejs/node/pull/59600);
+the server sidesteps it automatically by running the engine with
+`--no-turbo-fast-api-calls`, so any Node ≥ 20 works.)
 
 The server picks automatically: native when an installed LilyPond responds,
 wasm otherwise. Force one with `LILYPOND_MCP_BACKEND=native|wasm`.

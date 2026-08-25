@@ -27,8 +27,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          # 24+: node:wasi segfaults on x86_64 Linux before Node 24
-          # (nodejs/node#53087) — the backend itself refuses there too.
+          # Current LTS. (The 22.21.1+ node:wasi fast-call segfault is
+          # worked around in the backend itself — see wasm-backend.ts.)
           node-version: 24
 
       - name: Re-pin to the newest stable release
