@@ -64,11 +64,6 @@ is sidestepped automatically with `--no-turbo-fast-api-calls`.)
 The server picks automatically: native when an installed LilyPond responds,
 wasm otherwise. Force one with `LILYPOND_MCP_BACKEND=native|wasm`.
 
-PDF and PNG need Ghostscript/cairo, which cannot run inside WebAssembly —
-for InDesign-ready PDFs, install LilyPond (the [Nix
-flake](./flake.nix) in this repo provides a known-good one) or convert the
-wasm backend's EPS on the host.
-
 The wasm engine trails lilypond-wasi's stable releases: a weekly workflow
 re-pins `engine.json` to the newest release, engraves with it as a real
 consumer, and opens a PR.

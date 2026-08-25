@@ -32,3 +32,35 @@ jobs:
           echo "LILYPOND_MCP_ENGINE_DIR=$HOME/.cache/lilypond-mcp/engine/$(ls $HOME/.cache/lilypond-mcp/engine | head -1)" >> "$GITHUB_ENV"
 
       - run: nix develop --command npx vitest run
+
+  # The wasm backend on Windows: no Nix, no native LilyPond — engine
+  # downloaded from the pinned release like a real consumer, wasm suite
+  # only (the native suite needs the Nix dev shell). Not a required
+  # check until it has proven stable.
+  test-windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - run: npm ci
+      - run: npm run build
+
+      - name: Assemble engine dir from the pinned release
+        run: |
+          node - <<'JS'
+          const { ensureEngine } = await import("./dist/engine/fetch.js");
+          const { readFile, appendFile } = await import("node:fs/promises");
+          const pin = JSON.parse(await readFile("engine.json", "utf8"));
+          const { dir } = await ensureEngine(pin);
+          await appendFile(process.env.GITHUB_ENV, `LILYPOND_MCP_ENGINE_DIR=${dir}\n`);
+          console.log("engine dir:", dir);
+          JS
+
+      - run: npx vitest run test/wasm-backend.test.ts

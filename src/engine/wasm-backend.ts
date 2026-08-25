@@ -81,7 +81,8 @@ function runWorker(
         resolve({ badOption: true });
         return;
       }
-      const tail = stderr.trim().split("\n").slice(-30).join("\n");
+      const tailLines = process.env.LILYPOND_MCP_DEBUG_JOB ? 200 : 30;
+      const tail = stderr.trim().split("\n").slice(-tailLines).join("\n");
       // No JSON on stdout means the worker process itself died (segfault,
       // OOM kill, V8 fatal) before it could report — do not mistake that
       // for a quiet engine exit.
@@ -113,7 +114,15 @@ async function runEngine(job: object): Promise<WorkerReply> {
   const first = await runWorker(job, { withExnrefFlag: true });
   const second = first.badOption ? await runWorker(job, { withExnrefFlag: false }) : first;
   if (!second.reply) throw new Error("engine worker failed twice");
-  if (second.reply.error) throw new Error(second.reply.error);
+  if (second.reply.error) {
+    // A trap (RuntimeError) aborts the run, but whatever LilyPond said
+    // before it is the actual diagnosis — keep the stderr tail attached.
+    throw new Error(
+      second.reply.stderr
+        ? `${second.reply.error}\nEngine stderr tail:\n${second.reply.stderr}`
+        : second.reply.error,
+    );
+  }
   return second.reply;
 }
 
@@ -181,11 +190,15 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       `${manifest.writableDirectory}/out`,
       `${manifest.writableDirectory}/in.ly`,
     ];
+    // Internal debugging affordance: extra guest environment as JSON
+    // (e.g. LILYPOND_MCP_EXTRA_ENV='{"FC_DEBUG":"144"}' for fontconfig's
+    // scan/cache tracing).
+    const extraEnv = JSON.parse(process.env.LILYPOND_MCP_EXTRA_ENV ?? "{}");
     const job = (formatArgs: string[]) => {
       const j = {
         engineWasm: path.join(dir, "lilypond.wasm"),
         preopens,
-        env: manifest.environment,
+        env: { ...manifest.environment, ...extraEnv },
         args: baseArgs(formatArgs),
       };
       if (process.env.LILYPOND_MCP_DEBUG_JOB) {
