@@ -187,45 +187,25 @@ async function engraveNative(req: EngraveRequest): Promise<EngraveResult> {
 
 /**
  * Give a PDF explicit CropBox/BleedBox/TrimBox/ArtBox entries matching its
- * MediaBox.
+ * MediaBox — in pure JS, no Ghostscript.
  *
  * Cairo writes only a MediaBox. The PDF spec says the others then *default*
  * to it, but InDesign does not apply that default: with the Place dialog
  * set to "Crop to: Bleed box" it refuses the file outright ("the bleed box
- * is not defined, or is empty"). Ghostscript is the least-bad way to add
- * them — rewriting the page dictionary by hand would invalidate the xref
- * table.
+ * is not defined, or is empty").
  */
 async function stampPdfBoxes(pdfPath: string): Promise<void> {
-  const bytes = await readFile(pdfPath, "latin1");
-  const match = bytes.match(/\/MediaBox\s*\[\s*([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s+([\d.+-]+)\s*\]/);
-  if (!match) return;
-  const [x0, y0, x1, y1] = match.slice(1).map(Number);
-  const box = `[${x0} ${y0} ${x1} ${y1}]`;
-  const tmp = `${pdfPath}.boxed.pdf`;
-
-  const outcome = await new Promise<{ code: number | null }>((resolve, reject) => {
-    const child = spawn(
-      "gs",
-      [
-        "-dBATCH", "-dNOPAUSE", "-dSAFER",
-        "-sDEVICE=pdfwrite", "-dCompatibilityLevel=1.7",
-        `-sOutputFile=${tmp}`,
-        "-c",
-        `[/CropBox ${box} /BleedBox ${box} /TrimBox ${box} /ArtBox ${box} /PAGE pdfmark`,
-        "-f", pdfPath,
-      ],
-      { stdio: ["ignore", "ignore", "pipe"], timeout: RUN_TIMEOUT_MS },
-    );
-    child.on("error", reject);
-    child.on("close", (code) => resolve({ code }));
-  });
-
-  if (outcome.code === 0 && (await exists(tmp))) {
-    await rename(tmp, pdfPath);
-  } else {
-    await rm(tmp, { force: true });
+  const { PDFDocument } = await import("pdf-lib");
+  const doc = await PDFDocument.load(await readFile(pdfPath));
+  for (const page of doc.getPages()) {
+    const { x, y, width, height } = page.getMediaBox();
+    page.setCropBox(x, y, width, height);
+    page.setBleedBox(x, y, width, height);
+    page.setTrimBox(x, y, width, height);
+    page.setArtBox(x, y, width, height);
   }
+  const { writeFile } = await import("node:fs/promises");
+  await writeFile(pdfPath, await doc.save({ useObjectStreams: false }));
 }
 
 async function lilypondVersionNative(): Promise<string> {
