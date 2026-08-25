@@ -2,6 +2,33 @@
 
 Maintained by Knope from conventional commits.
 
+## 0.1.4 (2026-08-25)
+
+### Fixes
+
+#### `engines` now says Node ≥ 22, matching reality
+
+The wasm engine uses WebAssembly exception handling (exnref) that V8
+first shipped in Node 22 — on Node 20 it fails to compile. The declared
+`engines` range claimed `>=20`; it now says `>=22` so npm warns before
+the engine does.
+
+#### The wasm engine now works on Windows
+
+Three separate walls stood between Windows and a working engine, all
+gone:
+
+- extracting the engine shelled out to `tar` and `chmod` — `chmod` does
+  not exist on Windows, and whichever `tar` PATH serves up (GNU, bsdtar,
+  Git's MSYS tar) has its own path dialect and mode quirks. Extraction
+  is now pure JS (node-tar, the same engine npm uses), assuming no
+  system tools at all;
+- Node's WASI implementation has no `fd_readdir` on Windows (ENOSYS), so
+  fontconfig found no fonts and the engine aborted — the worker now
+  polyfills directory listing on Windows.
+
+CI runs the wasm suite on `windows-latest` to keep it working.
+
 ## 0.1.3 (2026-08-25)
 
 ### Features
