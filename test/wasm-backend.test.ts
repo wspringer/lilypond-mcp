@@ -58,16 +58,30 @@ describe.skipIf(!ENGINE_DIR)("engraveWasm", () => {
     expect(result.ok).toBe(true);
   }, 120_000);
 
-  it("refuses formats the engine cannot produce, pointing at native", async () => {
+  it("handles pdf according to the engine generation", async () => {
     const source = path.join(dir, "triad.ly");
     await writeFile(source, SNIPPET);
+    const manifest = JSON.parse(
+      await readFile(path.join(ENGINE_DIR!, "manifest.json"), "utf8"),
+    );
 
     const result = await engraveWasm(
       { source, name: "triad", outputDir: path.join(dir, "out"), formats: ["pdf"], crop: true, includeDirs: [] },
       PIN,
     );
-    expect(result.ok).toBe(false);
-    expect(result.errors).toContain("native backend");
+    if (manifest.formats.includes("pdf")) {
+      // cairo-era engine: real PDF, boxes stamped, preview delivered
+      expect(result.ok).toBe(true);
+      const pdf = await readFile(result.outputs.pdf!, "latin1");
+      for (const box of ["CropBox", "BleedBox", "TrimBox", "ArtBox"]) {
+        expect(pdf).toContain(`/${box}`);
+      }
+      expect(result.previewPng).toBeDefined();
+    } else {
+      // pre-cairo engine: clear refusal pointing at the alternatives
+      expect(result.ok).toBe(false);
+      expect(result.errors).toContain("native backend");
+    }
   }, 120_000);
 
   it("reports diagnostics on broken input", async () => {

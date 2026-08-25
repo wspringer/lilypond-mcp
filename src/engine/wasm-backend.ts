@@ -5,6 +5,7 @@ import path from "node:path";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { EngraveRequest, EngraveResult, Format } from "../lilypond.js";
+import { stampPdfBoxes } from "../lilypond.js";
 import { ensureEngine, mountHostPath } from "./fetch.js";
 import type { EnginePin } from "./manifest.js";
 
@@ -98,10 +99,13 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       ok: false,
       outputs: {},
       errors:
-        `the wasm engine supports ${manifest.formats.join(", ")} — not ${unsupported.join(", ")}. ` +
-        `Use the native backend (installed LilyPond) for those formats.`,
+        `this engine release supports ${manifest.formats.join(", ")} — not ${unsupported.join(", ")}. ` +
+        `Use the native backend (installed LilyPond), or a newer engine release, for those formats.`,
     };
   }
+  // Engines from p0.1.3 onward carry the cairo backend: one pass for
+  // everything, fonts subsetted, clean exits, and a free preview PNG.
+  const hasCairo = manifest.formats.includes("pdf");
 
   const source = path.resolve(req.source);
   if (!(await exists(source))) {
@@ -159,16 +163,25 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       return j;
     };
 
-    if (req.formats.includes("svg")) {
-      const reply = await runEngine(job(["--formats=svg"]));
+    if (hasCairo) {
+      const fmts = new Set<Format>(req.formats);
+      fmts.add("png"); // preview, near-free on the cairo backend
+      const reply = await runEngine(job(["-dbackend=cairo", `--formats=${[...fmts].join(",")}`]));
       if (reply.exitCode !== 0) {
         return { ok: false, outputs: {}, errors: reply.stderr || `wasm engine exited ${reply.exitCode}` };
       }
-    }
-    if (req.formats.includes("eps")) {
-      // Known issue (see the release manifest): with -dcrop the run exits
-      // nonzero AFTER writing complete EPS — trust the artifact instead.
-      await runEngine(job(["-dbackend=ps", "--formats=eps"]));
+    } else {
+      if (req.formats.includes("svg")) {
+        const reply = await runEngine(job(["--formats=svg"]));
+        if (reply.exitCode !== 0) {
+          return { ok: false, outputs: {}, errors: reply.stderr || `wasm engine exited ${reply.exitCode}` };
+        }
+      }
+      if (req.formats.includes("eps")) {
+        // Known issue (see the release manifest): with -dcrop the run exits
+        // nonzero AFTER writing complete EPS — trust the artifact instead.
+        await runEngine(job(["-dbackend=ps", "--formats=eps"]));
+      }
     }
 
     const outputs: Partial<Record<Format, string>> = {};
@@ -184,11 +197,26 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       }
     }
 
+    // Preview PNG (cairo engines only) + InDesign box stamping, same as
+    // the native backend.
+    let previewPng: string | undefined = outputs.png;
+    if (hasCairo && !previewPng) {
+      const cand = path.join(work, req.crop ? "out.cropped.png" : "out.png");
+      if (await exists(cand)) {
+        previewPng = path.join(outputDir, `${req.name}.preview.png`);
+        await rm(previewPng, { force: true });
+        await copyFile(cand, previewPng);
+      }
+    }
+    if (outputs.pdf) {
+      await stampPdfBoxes(outputs.pdf);
+    }
+
     const missing = req.formats.filter((f) => !outputs[f]);
     if (missing.length > 0) {
-      return { ok: false, outputs, errors: `wasm engine produced no ${missing.join(", ")} output` };
+      return { ok: false, outputs, previewPng, errors: `wasm engine produced no ${missing.join(", ")} output` };
     }
-    return { ok: true, outputs };
+    return { ok: true, outputs, previewPng };
   } finally {
     await rm(work, { recursive: true, force: true });
   }

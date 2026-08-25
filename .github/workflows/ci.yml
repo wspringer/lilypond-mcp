@@ -1,0 +1,34 @@
+name: ci
+
+# Test every PR and push to main. Native tests run in the Nix dev shell
+# (LilyPond 2.26 + cairo); wasm-backend tests run against an engine dir
+# assembled from the pinned release, downloaded like a real consumer.
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: DeterminateSystems/nix-installer-action@main
+
+      - run: nix develop --command npm ci
+      - run: nix develop --command npm run build
+
+      - name: Assemble engine dir from the pinned release
+        run: |
+          set -euo pipefail
+          node - <<'JS'
+          const { ensureEngine } = await import("./dist/engine/fetch.js");
+          const { readFile } = await import("node:fs/promises");
+          const pin = JSON.parse(await readFile("engine.json", "utf8"));
+          const { dir } = await ensureEngine(pin);
+          console.log("ENGINE_DIR=" + dir);
+          JS
+          echo "LILYPOND_MCP_ENGINE_DIR=$HOME/.cache/lilypond-mcp/engine/$(ls $HOME/.cache/lilypond-mcp/engine | head -1)" >> "$GITHUB_ENV"
+
+      - run: nix develop --command npx vitest run
