@@ -14,9 +14,10 @@ import type { EnginePin } from "./manifest.js";
  * installed LilyPond, no Nix, no Ghostscript. The engine is fetched once
  * into a cache and executed in a child Node process via node:wasi.
  *
- * Formats: what the release manifest declares (svg, eps). PDF and PNG need
- * Ghostscript or cairo, neither of which exists in the wasm engine — the
- * native backend remains the path for those (and for InDesign-ready PDF).
+ * Formats: what the release manifest declares. Engines from p0.1.3 carry
+ * the cairo backend (pdf, png, svg, eps — InDesign-ready PDF included);
+ * earlier engines do svg + eps only, with the native backend as the path
+ * for the rest.
  */
 
 const RUN_TIMEOUT_MS = 120_000;
@@ -63,7 +64,7 @@ function runWorker(
     child.stdout.on("data", (c) => (stdout += c));
     child.stderr.on("data", (c) => (stderr += c));
     child.on("error", reject);
-    child.on("close", (code) => {
+    child.on("close", (code, signal) => {
       // Node without this experimental flag (it graduated) exits 9 with a
       // "bad option" message before our code runs — detect and let the
       // caller retry flagless.
@@ -71,15 +72,32 @@ function runWorker(
         resolve({ badOption: true });
         return;
       }
+      const tail = stderr.trim().split("\n").slice(-30).join("\n");
+      // No JSON on stdout means the worker process itself died (segfault,
+      // OOM kill, V8 fatal) before it could report — do not mistake that
+      // for a quiet engine exit.
+      if (stdout.trim() === "") {
+        reject(new Error(
+          `engine worker crashed (exit ${code}, signal ${signal ?? "none"}) — ` +
+          `this is a Node/V8-level failure, not a LilyPond error. Engine stderr tail:\n${tail}`,
+        ));
+        return;
+      }
       try {
-        const reply: WorkerReply = JSON.parse(stdout || "{}");
-        reply.stderr = stderr.trim().split("\n").slice(-30).join("\n");
+        const reply: WorkerReply = JSON.parse(stdout);
+        reply.stderr = tail;
         resolve({ reply, badOption: false });
       } catch {
-        reject(new Error(`engine worker produced no result (exit ${code}): ${stderr.slice(-400)}`));
+        reject(new Error(`engine worker produced unparseable output (exit ${code}): ${stderr.slice(-400)}`));
       }
     });
   });
+}
+
+/** Diagnostics for a nonzero engine exit: stderr tail AND the exit code —
+ * a quiet death (no stderr past the banner) must still name the code. */
+function engineFailure(reply: WorkerReply): string {
+  return [reply.stderr, `wasm engine exited ${reply.exitCode}`].filter(Boolean).join("\n");
 }
 
 async function runEngine(job: object): Promise<WorkerReply> {
@@ -91,6 +109,20 @@ async function runEngine(job: object): Promise<WorkerReply> {
 }
 
 export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<EngraveResult> {
+  // Node's WASI syscall fast path corrupts memory on x86_64 Linux before
+  // Node 24 (nodejs/node#53087, shipped in 22.2.0, closed unfixed) — the
+  // engine segfaults during Guile startup. Refuse with a pointer instead.
+  const nodeMajor = Number(process.versions.node.split(".")[0]);
+  if (process.platform === "linux" && nodeMajor < 24) {
+    return {
+      ok: false,
+      outputs: {},
+      errors:
+        `the wasm engine needs Node >= 24 on Linux (you are on ${process.version}): ` +
+        `node:wasi crashes there on older lines (nodejs/node#53087). ` +
+        `Upgrade Node, or install LilyPond to use the native backend.`,
+    };
+  }
   const { dir, manifest } = await ensureEngine(pin);
 
   const unsupported = req.formats.filter((f) => !manifest.formats.includes(f));
@@ -140,9 +172,13 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       includeArgs.push(`-I${guest}`);
     });
 
+    // Internal debugging affordance: extra engine arguments, space-split
+    // (e.g. LILYPOND_MCP_EXTRA_ARGS="--verbose" for LilyPond's debug log).
+    const extraArgs = (process.env.LILYPOND_MCP_EXTRA_ARGS ?? "").split(" ").filter(Boolean);
     const baseArgs = (formatArgs: string[]) => [
       manifest.argv0,
       "-dno-point-and-click",
+      ...extraArgs,
       ...(req.crop ? ["-dcrop"] : []),
       ...includeArgs,
       ...formatArgs,
@@ -168,13 +204,13 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       fmts.add("png"); // preview, near-free on the cairo backend
       const reply = await runEngine(job(["-dbackend=cairo", `--formats=${[...fmts].join(",")}`]));
       if (reply.exitCode !== 0) {
-        return { ok: false, outputs: {}, errors: reply.stderr || `wasm engine exited ${reply.exitCode}` };
+        return { ok: false, outputs: {}, errors: engineFailure(reply) };
       }
     } else {
       if (req.formats.includes("svg")) {
         const reply = await runEngine(job(["--formats=svg"]));
         if (reply.exitCode !== 0) {
-          return { ok: false, outputs: {}, errors: reply.stderr || `wasm engine exited ${reply.exitCode}` };
+          return { ok: false, outputs: {}, errors: engineFailure(reply) };
         }
       }
       if (req.formats.includes("eps")) {
