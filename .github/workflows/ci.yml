@@ -64,3 +64,11 @@ jobs:
           JS
 
       - run: npx vitest run test/wasm-backend.test.ts
+
+      # DEBUG (temporary): fontconfig scan/cache tracing on failure
+      - name: Fontconfig debug re-run
+        if: failure()
+        run: |
+          LILYPOND_MCP_DEBUG_JOB=1 \
+          LILYPOND_MCP_EXTRA_ENV='{"FC_DEBUG":"144"}' \
+          npx vitest run test/wasm-backend.test.ts -t "engraves svg" || true
