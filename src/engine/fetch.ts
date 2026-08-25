@@ -62,9 +62,27 @@ function run(cmd: string, args: string[]): Promise<void> {
   });
 }
 
+let gnuTar: boolean | undefined;
+async function isGnuTar(): Promise<boolean> {
+  if (gnuTar !== undefined) return gnuTar;
+  gnuTar = await new Promise<boolean>((resolve) => {
+    const child = spawn("tar", ["--version"], { stdio: ["ignore", "pipe", "ignore"] });
+    let out = "";
+    child.stdout.on("data", (c) => (out += c));
+    child.on("error", () => resolve(false));
+    child.on("close", () => resolve(/GNU tar/i.test(out)));
+  });
+  return gnuTar;
+}
+
 async function extractTarGz(tarball: string, into: string): Promise<void> {
   await mkdir(into, { recursive: true });
-  await run("tar", ["-xzf", tarball, "-C", into]);
+  // The tarballs carry Nix-store modes, including non-writable directories.
+  // GNU tar applies directory permissions as it goes and then cannot create
+  // files inside them; --delay-directory-restore defers that to the end.
+  // bsdtar (macOS) already defers and doesn't know the flag.
+  const flags = (await isGnuTar()) ? ["--delay-directory-restore"] : [];
+  await run("tar", ["-xzf", tarball, "-C", into, ...flags]);
   // The tarballs come from the Nix store and carry read-only modes (0444
   // files, non-writable dirs). Left as-is, the user cannot evict their own
   // cache and we cannot heal a broken one — restore owner-write.
