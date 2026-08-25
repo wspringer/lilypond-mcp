@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { createWriteStream } from "node:fs";
-import { mkdir, readFile, rename, rm, stat } from "node:fs/promises";
+import { chmod, lstat, mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
@@ -75,24 +75,41 @@ async function isGnuTar(): Promise<boolean> {
   return gnuTar;
 }
 
+/**
+ * Restore owner-write on a tree, in pure Node — `chmod` the command does
+ * not exist on Windows, and this must run wherever npx does. Symlinks are
+ * skipped: chmod would follow them out of the tree.
+ */
+async function makeWritable(root: string): Promise<void> {
+  const restore = async (p: string) => {
+    const s = await lstat(p);
+    if (s.isSymbolicLink()) return;
+    await chmod(p, s.mode | 0o200);
+  };
+  await restore(root);
+  for (const entry of await readdir(root, { withFileTypes: true, recursive: true })) {
+    await restore(path.join(entry.parentPath, entry.name));
+  }
+}
+
 async function extractTarGz(tarball: string, into: string): Promise<void> {
   await mkdir(into, { recursive: true });
   // The tarballs carry Nix-store modes, including non-writable directories.
   // GNU tar applies directory permissions as it goes and then cannot create
   // files inside them; --delay-directory-restore defers that to the end.
-  // bsdtar (macOS) already defers and doesn't know the flag.
+  // bsdtar (macOS, Windows) already defers and doesn't know the flag.
   const flags = (await isGnuTar()) ? ["--delay-directory-restore"] : [];
   await run("tar", ["-xzf", tarball, "-C", into, ...flags]);
   // The tarballs come from the Nix store and carry read-only modes (0444
   // files, non-writable dirs). Left as-is, the user cannot evict their own
   // cache and we cannot heal a broken one — restore owner-write.
-  await run("chmod", ["-R", "u+w", into]);
+  await makeWritable(into);
 }
 
 /** Remove a cache dir even when a previous extraction left it read-only. */
 async function forceRemove(p: string): Promise<void> {
   if (!(await exists(p))) return;
-  await run("chmod", ["-R", "u+w", p]).catch(() => undefined);
+  await makeWritable(p).catch(() => undefined);
   await rm(p, { recursive: true, force: true });
 }
 
