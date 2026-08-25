@@ -2,6 +2,13 @@
 
 Maintained by Knope from conventional commits.
 
+## 0.1.1 (2026-08-25)
+
+### Features
+
+- pin the wasm engine to stable/2.26.1-p0.1.2 and trail it weekly
+- WebAssembly engine backend — engrave with zero system dependencies
+
 ## 0.1.0
 
 Initial release: MCP server engraving LilyPond sources into placeable
