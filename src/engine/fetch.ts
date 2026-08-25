@@ -1,10 +1,10 @@
 import { createHash } from "node:crypto";
-import { createReadStream, createWriteStream } from "node:fs";
+import { createWriteStream } from "node:fs";
 import { chmod, lstat, mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
-import { spawn } from "node:child_process";
+import { extract } from "tar";
 import type { EnginePin, RuntimeManifest } from "./manifest.js";
 
 /**
@@ -17,8 +17,8 @@ import type { EnginePin, RuntimeManifest } from "./manifest.js";
  *   mounts/<name>/      one extracted directory per tarball mount
  *
  * Everything is downloaded from the release, verified against the pinned
- * sha256s, and extracted with the system `tar`. The npm package itself
- * ships none of it — see LICENSING.md.
+ * sha256s, and extracted with the bundled pure-JS tar — no system tools
+ * assumed. The npm package itself ships none of it — see LICENSING.md.
  */
 
 function cacheRoot(): string {
@@ -50,43 +50,6 @@ async function sha256Of(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-function run(
-  cmd: string,
-  args: string[],
-  opts: { cwd?: string; stdinFile?: string } = {},
-): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, {
-      cwd: opts.cwd,
-      stdio: [opts.stdinFile ? "pipe" : "ignore", "ignore", "pipe"],
-    });
-    let stderr = "";
-    child.stderr!.on("data", (c) => (stderr += c));
-    child.on("error", reject);
-    child.on("close", (code) =>
-      code === 0 ? resolve() : reject(new Error(`${cmd} failed (${code}): ${stderr.trim()}`)),
-    );
-    if (opts.stdinFile) {
-      const input = createReadStream(opts.stdinFile);
-      input.on("error", reject);
-      input.pipe(child.stdin!);
-    }
-  });
-}
-
-let gnuTar: boolean | undefined;
-async function isGnuTar(): Promise<boolean> {
-  if (gnuTar !== undefined) return gnuTar;
-  gnuTar = await new Promise<boolean>((resolve) => {
-    const child = spawn("tar", ["--version"], { stdio: ["ignore", "pipe", "ignore"] });
-    let out = "";
-    child.stdout.on("data", (c) => (out += c));
-    child.on("error", () => resolve(false));
-    child.on("close", () => resolve(/GNU tar/i.test(out)));
-  });
-  return gnuTar;
-}
-
 /**
  * Restore owner-write on a tree, in pure Node — `chmod` the command does
  * not exist on Windows, and this must run wherever npx does. Symlinks are
@@ -106,19 +69,13 @@ async function makeWritable(root: string): Promise<void> {
 
 async function extractTarGz(tarball: string, into: string): Promise<void> {
   await mkdir(into, { recursive: true });
-  // The tarballs carry Nix-store modes, including non-writable directories.
-  // GNU tar applies directory permissions as it goes and then cannot create
-  // files inside them; --delay-directory-restore defers that to the end.
-  // bsdtar (macOS, Windows system tar) already defers and doesn't know the
-  // flag. No host paths in argv on purpose: Windows PATHs can resolve tar
-  // to Git's MSYS GNU tar, which reads "C:\..." as a remote host and
-  // mangles backslashes — stdin + cwd sidestep every path dialect.
-  const flags = (await isGnuTar()) ? ["--delay-directory-restore"] : [];
-  await run("tar", ["-xzf", "-", ...flags], { cwd: into, stdinFile: tarball });
-  // The tarballs come from the Nix store and carry read-only modes (0444
-  // files, non-writable dirs). Left as-is, the user cannot evict their own
-  // cache and we cannot heal a broken one — restore owner-write.
-  await makeWritable(into);
+  // Bundled pure-JS tar (node-tar): a system tar cannot be assumed
+  // everywhere npx runs, and the three flavors we met (GNU, bsdtar, MSYS
+  // GNU) each needed their own accommodations. node-tar does not apply
+  // archive modes unless asked — exactly right, since the tarballs carry
+  // read-only Nix-store modes that would make the cache unevictable and
+  // unhealable. Extracted entries get default (writable) modes instead.
+  await extract({ file: tarball, cwd: into });
 }
 
 /** Remove a cache dir even when a previous extraction left it read-only. */
