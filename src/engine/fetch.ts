@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { createWriteStream } from "node:fs";
+import { createReadStream, createWriteStream } from "node:fs";
 import { chmod, lstat, mkdir, readdir, readFile, rename, rm, stat } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
@@ -50,15 +50,27 @@ async function sha256Of(file: string): Promise<string> {
   return hash.digest("hex");
 }
 
-function run(cmd: string, args: string[]): Promise<void> {
+function run(
+  cmd: string,
+  args: string[],
+  opts: { cwd?: string; stdinFile?: string } = {},
+): Promise<void> {
   return new Promise((resolve, reject) => {
-    const child = spawn(cmd, args, { stdio: ["ignore", "ignore", "pipe"] });
+    const child = spawn(cmd, args, {
+      cwd: opts.cwd,
+      stdio: [opts.stdinFile ? "pipe" : "ignore", "ignore", "pipe"],
+    });
     let stderr = "";
     child.stderr.on("data", (c) => (stderr += c));
     child.on("error", reject);
     child.on("close", (code) =>
       code === 0 ? resolve() : reject(new Error(`${cmd} failed (${code}): ${stderr.trim()}`)),
     );
+    if (opts.stdinFile) {
+      const input = createReadStream(opts.stdinFile);
+      input.on("error", reject);
+      input.pipe(child.stdin!);
+    }
   });
 }
 
@@ -97,12 +109,12 @@ async function extractTarGz(tarball: string, into: string): Promise<void> {
   // The tarballs carry Nix-store modes, including non-writable directories.
   // GNU tar applies directory permissions as it goes and then cannot create
   // files inside them; --delay-directory-restore defers that to the end.
-  // --force-local: GNU tar reads "C:\..." as a remote host named C —
-  // Windows PATHs (Git for Windows) can put GNU tar ahead of the system
-  // bsdtar. bsdtar (macOS, Windows system tar) knows neither flag and
-  // needs neither.
-  const flags = (await isGnuTar()) ? ["--delay-directory-restore", "--force-local"] : [];
-  await run("tar", ["-xzf", tarball, "-C", into, ...flags]);
+  // bsdtar (macOS, Windows system tar) already defers and doesn't know the
+  // flag. No host paths in argv on purpose: Windows PATHs can resolve tar
+  // to Git's MSYS GNU tar, which reads "C:\..." as a remote host and
+  // mangles backslashes — stdin + cwd sidestep every path dialect.
+  const flags = (await isGnuTar()) ? ["--delay-directory-restore"] : [];
+  await run("tar", ["-xzf", "-", ...flags], { cwd: into, stdinFile: tarball });
   // The tarballs come from the Nix store and carry read-only modes (0444
   // files, non-writable dirs). Left as-is, the user cannot evict their own
   // cache and we cannot heal a broken one — restore owner-write.
