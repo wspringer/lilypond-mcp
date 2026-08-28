@@ -36,14 +36,16 @@ engine (~35 MB, checksum-verified, cached under
 
 - **`engrave_file`** — engrave a `.ly` file. Defaults to cropped PDF —
   the format to place in InDesign (fonts embedded and subsetted, all PDF
-  boxes defined). Also returns a preview PNG an agent can look at.
+  boxes defined). Also returns a preview PNG, both as a file and inline
+  as an image in the tool result, so the agent sees what it engraved.
 - **`engrave_code`** — engrave LilyPond code passed inline, for iterating
   on a musical idea without touching disk.
 - **`lilypond_version`** — the LilyPond version the server engraves with,
   for picking the right `\version` header.
 
 Both engrave tools accept `formats` (`pdf`/`eps`/`svg`/`png`), `crop`,
-`include_dirs` (for shared `\include` libraries), and `output_dir`. Paths
+`include_dirs` (for shared `\include` libraries), `output_dir`, and
+`preview` (default on; turn off to skip the inline image on batch runs). Paths
 are resolved against the working directory the server is launched in — for
 an `.mcp.json` entry, that is the project root. On failure the result
 carries LilyPond's diagnostics, line numbers included, so an agent can fix
