@@ -2,6 +2,28 @@
 
 Maintained by Knope from conventional commits.
 
+## 0.2.0 (2026-08-28)
+
+### Breaking Changes
+
+#### The WebAssembly engine is now the only engraver
+
+The native backend — spawning an installed `lilypond` — is gone. Every
+engrave runs the pinned lilypond-wasi engine, on every platform, with the
+same formats (PDF, EPS, SVG, PNG) and the same InDesign-ready PDF.
+
+Breaking: `LILYPOND_MCP_BACKEND` is no longer recognised, and a LilyPond on
+`PATH` is ignored. Nothing needs installing beyond Node 22+; the engine is
+downloaded on first use and cached under `~/.cache/lilypond-mcp`.
+
+### Fixes
+
+#### `\include` of a file beside the source now resolves
+
+`\include "shared.ily"` next to the `.ly` being engraved works without
+listing its directory in `include_dirs`, as it does when running LilyPond
+by hand.
+
 ## 0.1.4 (2026-08-25)
 
 ### Fixes
