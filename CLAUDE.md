@@ -32,6 +32,8 @@ repo is MIT around a GPL engine.
   change without a change file silently ships undocumented — don't.
   Conventional PR titles (`fix:`, `feat:`, `ci:`) remain as history
   hygiene, nothing more.
+  A PR that changes nothing for npm users (CI, dev config, comments)
+  gets the `not user facing` label instead, which skips the bot's check.
 - **Releases:** the Knope bot keeps a release PR open; merging it tags,
   writes the changelog, and `release.yml` publishes to npm via trusted
   publishing (OIDC). Never `npm publish` by hand.

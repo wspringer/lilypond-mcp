@@ -18,3 +18,9 @@ repo = "lilypond-mcp"
 # changelog entries.
 [changes]
 ignore_conventional_commits = true
+
+# The bot's "Require changes to be documented" check accepts a change file
+# only (conventional commits are ignored above). PRs that change nothing
+# for npm users — CI, dev config, comments — carry this label instead.
+[bot.checks]
+skip_labels = ["not user facing"]
