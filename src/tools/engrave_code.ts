@@ -22,6 +22,13 @@ export function makeEngraveCodeTool() {
       .array(z.string())
       .default([])
       .describe("Directories searched by \\include, e.g. a shared settings library"),
+    font_dirs: z
+      .array(z.string())
+      .default([])
+      .describe(
+        "Directories of font files (.otf/.ttf) to make available beyond the bundled fonts; " +
+          "pick them in the score with property-defaults.fonts.serif = \"Family\" (or .sans / .typewriter)",
+      ),
     preview: z
       .boolean()
       .default(true)
@@ -61,6 +68,7 @@ export function makeEngraveCodeTool() {
           formats: args.formats,
           crop: args.crop,
           includeDirs: args.include_dirs,
+          fontDirs: args.font_dirs,
         });
         return toolResult(result, {
           isError: !result.ok,

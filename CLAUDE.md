@@ -55,7 +55,7 @@ repo is MIT around a GPL engine.
 - **LilyPond mangles single-component `-I` dirs** (`/inc` never resolves,
   `/deep/inc` does — its File_name parser). Every guest include path is
   two components: `/src/dir` for the source's own directory, `/include/N`
-  for `include_dirs`.
+  for `include_dirs`, `/fonts/N` for `font_dirs`.
 
 ## Tests
 
