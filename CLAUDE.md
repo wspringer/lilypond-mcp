@@ -1,10 +1,11 @@
 # lilypond-mcp
 
 MCP server that engraves LilyPond sources into placeable assets (PDF, EPS,
-SVG, PNG). Two backends: native (installed `lilypond` + `gs`) and wasm
-(engine fetched from [lilypond-wasi](https://github.com/wspringer/lilypond-wasi)
-releases, pinned in `engine.json`). See `README.md` for the user-facing
-story and `LICENSING.md` for why this repo is MIT around a GPL engine.
+SVG, PNG) with a WebAssembly build of LilyPond, fetched from
+[lilypond-wasi](https://github.com/wspringer/lilypond-wasi) releases and
+pinned in `engine.json`; an installed LilyPond is never used. See
+`README.md` for the user-facing story and `LICENSING.md` for why this
+repo is MIT around a GPL engine.
 
 ## Working practices
 
@@ -49,10 +50,15 @@ story and `LICENSING.md` for why this repo is MIT around a GPL engine.
   workflow already prefers it).
 - InDesign needs the PDF (fonts subsetted, all boxes stamped) — never
   hand it LilyPond EPS.
+- **LilyPond mangles single-component `-I` dirs** (`/inc` never resolves,
+  `/deep/inc` does — its File_name parser). Every guest include path is
+  two components: `/src/dir` for the source's own directory, `/include/N`
+  for `include_dirs`.
 
 ## Tests
 
-`nix develop --command npm test` — native suite needs the dev shell
-(LilyPond 2.26 + gs). Wasm suite is skipped unless
-`LILYPOND_MCP_ENGINE_DIR` points at an engine dir
-(`test/assemble-engine-dir.sh` builds one from a lilypond-wasi checkout).
+`npm run build`, then `LILYPOND_MCP_ENGINE_DIR=$(node scripts/assemble-engine-dir.mjs) npm test`
+— the script downloads the pinned engine into the cache (or reuses it) and
+prints the dir. Without the variable every suite skips locally and fails
+under `CI`. `test/assemble-engine-dir.sh` builds an engine dir from a
+lilypond-wasi checkout instead, for testing an unreleased engine.

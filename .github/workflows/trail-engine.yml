@@ -61,7 +61,7 @@ jobs:
           const pin = JSON.parse(await readFile("${{ github.workspace }}/engine.json", "utf8"));
           const r = await engraveWasm(
             { source: "/tmp/trail/t.ly", name: "t", outputDir: "/tmp/trail/out",
-              formats: ["svg", "eps"], crop: true, includeDirs: [] },
+              formats: ["pdf", "png", "svg", "eps"], crop: true, includeDirs: [] },
             pin,
           );
           console.log(JSON.stringify(r, null, 1));
@@ -74,8 +74,8 @@ jobs:
             echo "::endgroup::"
             exit 1
           fi
-          test -s out/t.svg && test -s out/t.eps
-          echo "engraved svg + eps with the pinned release"
+          for f in pdf png svg eps; do test -s "out/t.$f"; done
+          echo "engraved pdf + png + svg + eps with the pinned release"
 
       - name: Rebase so the PR carries only the pin and its change file
         if: steps.changed.outputs.changed == 'true'
@@ -117,5 +117,5 @@ jobs:
 
             Verified on this runner before opening: the release was
             downloaded like a real consumer (no Nix), checksums verified,
-            and the backend engraved SVG + EPS with it.
+            and the backend engraved PDF, PNG, SVG and EPS with it.
           labels: engine

@@ -4,7 +4,7 @@
 # backend:
 #
 #   ./test/assemble-engine-dir.sh /tmp/engine-dir ../lilypond-wasi stable
-#   LILYPOND_MCP_ENGINE_DIR=/tmp/engine-dir LILYPOND_MCP_BACKEND=wasm npm test
+#   LILYPOND_MCP_ENGINE_DIR=/tmp/engine-dir npm test
 set -euo pipefail
 
 dest="${1:?dest dir}"

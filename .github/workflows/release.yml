@@ -8,11 +8,8 @@ name: Release to npm
 # a short-lived signed claim, and provenance attestation is automatic.
 # (Configured on npmjs.com: package Settings -> Trusted Publisher.)
 #
-# Tests run inside the Nix dev shell: the native backend needs LilyPond
-# 2.26's cairo backend (distro packages are too old) plus Ghostscript,
-# exactly as in development. The wasm-backend tests are skipped here (no
-# engine dir) — trail-engine.yml exercises that path weekly against the
-# real release download.
+# Tests run against the pinned wasm engine, downloaded from the release
+# like a real consumer — the same path ci.yml gates PRs with.
 on:
   pull_request:
     types: [closed]
@@ -32,15 +29,17 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - uses: DeterminateSystems/nix-installer-action@main
-
       - uses: actions/setup-node@v4
         with:
           node-version: 24 # bundles npm >= 11.5.1, required for trusted publishing
           registry-url: https://registry.npmjs.org
 
-      - run: nix develop --command npm ci
-      - run: nix develop --command npm run build
-      - run: nix develop --command npm test
+      - run: npm ci
+      - run: npm run build
+
+      - name: Assemble engine dir from the pinned release
+        run: node scripts/assemble-engine-dir.mjs
+
+      - run: npm test
 
       - run: npm publish --access public
