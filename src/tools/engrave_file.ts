@@ -29,6 +29,13 @@ export function makeEngraveFileTool() {
       .array(z.string())
       .default([])
       .describe("Directories searched by \\include, e.g. a shared settings library"),
+    preview: z
+      .boolean()
+      .default(true)
+      .describe(
+        "Attach the preview PNG to the result as an image, so the engraving is visible inline " +
+          "without reading a file. Turn off for batch runs.",
+      ),
     name: z
       .string()
       .optional()
@@ -67,7 +74,10 @@ export function makeEngraveFileTool() {
         crop: args.crop,
         includeDirs: args.include_dirs,
       });
-      return toolResult(result, !result.ok);
+      return toolResult(result, {
+        isError: !result.ok,
+        imagePath: args.preview && result.ok ? result.previewPng : undefined,
+      });
     },
   };
 }
