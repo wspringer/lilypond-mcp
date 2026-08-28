@@ -80,6 +80,8 @@ comes back cropped to the music, as PDF, EPS, SVG or PNG — this is the SVG:
 
 (Source in [`docs/example.ly`](docs/example.ly).)
 
+[![Works great with Sidekick for InDesign](docs/sidekick-banner.svg)](https://sidekick.eastpole.nl?utm_source=github&utm_medium=readme&utm_campaign=lilypond-mcp)
+
 ## Engine
 
 Engraving runs a WebAssembly build of LilyPond from
