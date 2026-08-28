@@ -19,7 +19,7 @@
 
   <!-- Text -->
   <text x="90" y="35" font-family="system-ui, -apple-system, sans-serif" font-size="16" font-weight="600" fill="white">Works great with Sidekick for InDesign</text>
-  <text x="90" y="55" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="rgba(255,255,255,0.85)">Render math formulas directly in your InDesign layouts</text>
+  <text x="90" y="55" font-family="system-ui, -apple-system, sans-serif" font-size="13" fill="rgba(255,255,255,0.85)">Engrave scores and place them straight into your InDesign layouts</text>
 
   <!-- Arrow -->
   <g transform="translate(555, 32)">
