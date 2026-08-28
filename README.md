@@ -6,8 +6,9 @@ MCP server that engraves [GNU LilyPond](https://lilypond.org) sources into
 placeable assets: cropped PDF, EPS, SVG, and PNG, sized to the music rather
 than a full page — ready to drop into page-layout software such as InDesign.
 
-Nothing to install beyond Node: without a local LilyPond, the server
-fetches a WebAssembly build of the engine and engraves with that.
+Nothing to install beyond Node: the server fetches a WebAssembly build of
+LilyPond on first use and engraves with that — the same engine on every
+machine.
 
 ## Quick start
 
@@ -27,8 +28,8 @@ Claude Code — `.mcp.json` in your project:
 Claude Desktop — `claude_desktop_config.json`, same entry under
 `mcpServers`.
 
-That's the whole setup. On the first engrave without a local LilyPond, the
-server downloads the engine (~35 MB, checksum-verified, cached under
+That's the whole setup. On the first engrave, the server downloads the
+engine (~35 MB, checksum-verified, cached under
 `~/.cache/lilypond-mcp` — safe to delete at any time).
 
 ## Tools
@@ -48,46 +49,42 @@ an `.mcp.json` entry, that is the project root. On failure the result
 carries LilyPond's diagnostics, line numbers included, so an agent can fix
 the source and retry.
 
-## Two engraving backends
+## Engine
 
-| | native | wasm |
-|---|---|---|
-| needs | `lilypond` (≥ 2.26) and `gs` on `PATH` | nothing |
-| formats | pdf, eps, svg, png | pdf, eps, svg, png (engine ≥ p0.1.3; earlier engines: svg, eps) |
-| engine | whatever is installed | [lilypond-wasi](https://github.com/wspringer/lilypond-wasi) release, pinned in `engine.json` |
+Engraving runs a WebAssembly build of LilyPond from
+[lilypond-wasi](https://github.com/wspringer/lilypond-wasi) releases,
+pinned in `engine.json` and executed in a child Node process via
+`node:wasi`. Node 22 or newer: the engine uses WebAssembly exception
+handling that V8 first shipped in Node 22. (The `node:wasi` fast-call
+regression in Node 22.21.1+ —
+[nodejs/node#59600](https://github.com/nodejs/node/pull/59600) — is
+sidestepped automatically with `--no-turbo-fast-api-calls`.)
 
-(Node 22 or newer: the engine uses WebAssembly exception handling that
-V8 first shipped in Node 22. The `node:wasi` fast-call regression in
-Node 22.21.1+ — [nodejs/node#59600](https://github.com/nodejs/node/pull/59600) —
-is sidestepped automatically with `--no-turbo-fast-api-calls`.)
-
-The server picks automatically: native when an installed LilyPond responds,
-wasm otherwise. Force one with `LILYPOND_MCP_BACKEND=native|wasm`.
-
-The wasm engine trails lilypond-wasi's stable releases: a weekly workflow
+The engine trails lilypond-wasi's stable releases: a weekly workflow
 re-pins `engine.json` to the newest release, engraves with it as a real
 consumer, and opens a PR.
 
 ## Development
 
 ```
-direnv allow      # or: nix develop — provides node, lilypond 2.26, gs
 npm install
 npm run build     # tsc → dist/
-npm test          # engraves real snippets with both backends*
+npm test          # engraves real snippets with the wasm engine*
 ```
 
-\* wasm-backend tests need an engine dir:
-`./test/assemble-engine-dir.sh /tmp/engine-dir ../lilypond-wasi stable`,
-then `LILYPOND_MCP_ENGINE_DIR=/tmp/engine-dir npm test`.
+\* The tests need an engine dir and skip without one. Either download the
+pinned release into the cache — `node scripts/assemble-engine-dir.mjs`
+prints the dir — or build one from a lilypond-wasi checkout:
+`./test/assemble-engine-dir.sh /tmp/engine-dir ../lilypond-wasi stable`.
+Then `LILYPOND_MCP_ENGINE_DIR=<dir> npm test`.
 
 Releases: conventional commits → Knope bot release PR → merge → npm
 publish via OIDC trusted publishing (no tokens).
 
 ## Licence
 
-MIT. The server orchestrates GPL-licensed engravers (LilyPond,
-Ghostscript, and the lilypond-wasi WebAssembly build) as separate
-programs, and the npm package contains none of their bytes — see
+MIT. The server runs a GPL-licensed engraver (the lilypond-wasi
+WebAssembly build of GNU LilyPond) as a separate program, and the npm
+package contains none of its bytes — see
 `LICENSING.md` for the analysis and the design rules that keep that
 boundary clean.

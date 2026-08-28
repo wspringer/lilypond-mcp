@@ -3,11 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { engraveWasm } from "../src/engine/wasm-backend.js";
+import { ENGINE_DIR } from "./engine-dir.js";
 
-// Offline wasm-backend tests. Point LILYPOND_MCP_ENGINE_DIR at a dir made
-// by test/assemble-engine-dir.sh (or a real fetched cache); skipped
-// otherwise so plain `npm test` needs neither network nor a wasi build.
-const ENGINE_DIR = process.env.LILYPOND_MCP_ENGINE_DIR;
+// Offline wasm-backend tests, straight at engraveWasm with a dummy pin
+// (see engine-dir.ts for the skip rule).
 
 const PIN = { repository: "local/test", tag: "local", sha256: {} };
 

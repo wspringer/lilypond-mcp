@@ -3,12 +3,10 @@ import os from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { engrave, lilypondVersion } from "../src/lilypond.js";
+import { ENGINE_DIR } from "./engine-dir.js";
 
 // End-to-end through the public engrave() API, which always runs the wasm
-// engine. Point LILYPOND_MCP_ENGINE_DIR at a dir made by
-// test/assemble-engine-dir.sh (or a fetched cache); skipped otherwise so
-// plain `npm test` needs neither network nor a wasi build.
-const ENGINE_DIR = process.env.LILYPOND_MCP_ENGINE_DIR;
+// engine (see engine-dir.ts for the skip rule).
 
 const SNIPPET = `\\version "2.26.0"
 \\header { tagline = ##f }
