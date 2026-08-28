@@ -226,8 +226,10 @@ async function lilypondVersionNative(): Promise<string> {
 //
 // "native" spawns the installed LilyPond (cairo backend: pdf/eps/svg/png,
 // InDesign-ready PDF). "wasm" runs the lilypond-wasi engine via node:wasi —
-// zero system dependencies, svg/eps only. Default: native when an installed
-// LilyPond responds, otherwise wasm. Override with LILYPOND_MCP_BACKEND.
+// zero system dependencies; the same four formats on engines from p0.1.3
+// (cairo), svg/eps only on earlier engines. Default: native when an
+// installed LilyPond responds, otherwise wasm. Override with
+// LILYPOND_MCP_BACKEND.
 // ---------------------------------------------------------------------------
 
 import { readFile as readFileForPin } from "node:fs/promises";
