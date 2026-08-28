@@ -49,6 +49,35 @@ an `.mcp.json` entry, that is the project root. On failure the result
 carries LilyPond's diagnostics, line numbers included, so an agent can fix
 the source and retry.
 
+## What you get
+
+This snippet, sent to `engrave_code`:
+
+```lilypond
+\version "2.26.0"
+\header { tagline = ##f }
+
+\score {
+  <<
+    \new ChordNames \chordmode { g2. | c | d | g }
+    \new Staff \new Voice = "m" \relative c'' {
+      \key g \major
+      \time 3/4
+      \tempo "Waltz" 4 = 132
+      g4 b d | e4.( d8) c4 | a4 fis d | g2 r4 \bar "|."
+    }
+    \new Lyrics \lyricsto "m" { Round and round the waltz goes, old and slow. }
+  >>
+  \layout { indent = 0 }
+}
+```
+
+comes back cropped to the music, as PDF, EPS, SVG or PNG — this is the SVG:
+
+<img src="https://raw.githubusercontent.com/wspringer/lilypond-mcp/main/docs/example.svg" alt="Four bars of a waltz in G major with chord names and lyrics, engraved by LilyPond" width="600">
+
+(Source in [`docs/example.ly`](docs/example.ly).)
+
 ## Engine
 
 Engraving runs a WebAssembly build of LilyPond from
