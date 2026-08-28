@@ -4,12 +4,18 @@ import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { engrave, lilypondVersion } from "../src/lilypond.js";
 
+// End-to-end through the public engrave() API, which always runs the wasm
+// engine. Point LILYPOND_MCP_ENGINE_DIR at a dir made by
+// test/assemble-engine-dir.sh (or a fetched cache); skipped otherwise so
+// plain `npm test` needs neither network nor a wasi build.
+const ENGINE_DIR = process.env.LILYPOND_MCP_ENGINE_DIR;
+
 const SNIPPET = `\\version "2.26.0"
 \\header { tagline = ##f }
 \\score { \\new Staff { \\clef treble <c' e' g'>1 } }
 `;
 
-describe("engrave", () => {
+describe.skipIf(!ENGINE_DIR)("engrave", { timeout: 120_000 }, () => {
   let dir: string;
 
   beforeEach(async () => {
@@ -110,6 +116,24 @@ describe("engrave", () => {
     expect(result.outputs.png).toBeDefined();
   });
 
+  it("resolves \\include of a file beside the source without include_dirs", async () => {
+    await writeFile(path.join(dir, "shared.ily"), `\\version "2.26.0" \\header { tagline = ##f }`);
+    const source = path.join(dir, "uses-sibling.ly");
+    await writeFile(source, `\\version "2.26.0"\n\\include "shared.ily"\n{ c'1 }`);
+
+    const result = await engrave({
+      source,
+      name: "uses-sibling",
+      outputDir: path.join(dir, "out"),
+      formats: ["png"],
+      crop: true,
+      includeDirs: [],
+    });
+
+    expect(result.ok).toBe(true);
+    expect(result.outputs.png).toBeDefined();
+  });
+
   it("reports LilyPond diagnostics on broken input", async () => {
     const source = path.join(dir, "broken.ly");
     await writeFile(source, `\\version "2.26.0"\n{ c' nonsense-token }`);
@@ -145,7 +169,7 @@ describe("engrave", () => {
   });
 });
 
-describe("lilypondVersion", () => {
+describe.skipIf(!ENGINE_DIR)("lilypondVersion", { timeout: 120_000 }, () => {
   it("reports a version banner", async () => {
     expect(await lilypondVersion()).toMatch(/LilyPond 2\.\d+/);
   });

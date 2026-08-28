@@ -16,8 +16,7 @@ import type { EnginePin } from "./manifest.js";
  *
  * Formats: what the release manifest declares. Engines from p0.1.3 carry
  * the cairo backend (pdf, png, svg, eps — InDesign-ready PDF included);
- * earlier engines do svg + eps only, with the native backend as the path
- * for the rest.
+ * earlier engines do svg + eps only.
  */
 
 const RUN_TIMEOUT_MS = 120_000;
@@ -136,7 +135,7 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       outputs: {},
       errors:
         `this engine release supports ${manifest.formats.join(", ")} — not ${unsupported.join(", ")}. ` +
-        `Use the native backend (installed LilyPond), or a newer engine release, for those formats.`,
+        `Bump the engine pin (engine.json) to a release that provides them.`,
     };
   }
   // Engines from p0.1.3 onward carry the cairo backend: one pass for
@@ -159,7 +158,11 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
 
     const preopens: Record<string, string> = {
       [manifest.writableDirectory]: work,
-      "/src": path.dirname(source),
+      // Two components, not "/src": LilyPond's File_name parser mangles
+      // single-component absolute dirs when assembling search paths (see
+      // the include_dirs note below). Passed as -I so a \include beside
+      // the source resolves — the source itself runs as a copy in /work.
+      "/src/dir": path.dirname(source),
     };
     for (const mountPoint of Object.keys(manifest.mounts)) {
       preopens[mountPoint] = mountHostPath(dir, manifest, mountPoint);
@@ -184,6 +187,7 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       "-dno-point-and-click",
       ...extraArgs,
       ...(req.crop ? ["-dcrop"] : []),
+      "-I/src/dir",
       ...includeArgs,
       ...formatArgs,
       "-o",
@@ -241,8 +245,7 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       }
     }
 
-    // Preview PNG (cairo engines only) + InDesign box stamping, same as
-    // the native backend.
+    // Preview PNG (cairo engines only) + InDesign box stamping.
     let previewPng: string | undefined = outputs.png;
     if (hasCairo && !previewPng) {
       const cand = path.join(work, req.crop ? "out.cropped.png" : "out.png");

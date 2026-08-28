@@ -80,7 +80,7 @@ describe.skipIf(!ENGINE_DIR)("engraveWasm", () => {
     } else {
       // pre-cairo engine: clear refusal pointing at the alternatives
       expect(result.ok).toBe(false);
-      expect(result.errors).toContain("native backend");
+      expect(result.errors).toContain("engine");
     }
   }, 120_000);
 
