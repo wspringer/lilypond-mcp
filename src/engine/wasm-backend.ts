@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { copyFile, mkdir, mkdtemp, rm, stat } from "node:fs/promises";
+import { copyFile, mkdir, mkdtemp, rm, stat, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import { existsSync } from "node:fs";
@@ -179,6 +179,22 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       includeArgs.push(`-I${guest}`);
     });
 
+    // Font directories: mounted at /fonts/N (two components, same reason)
+    // and registered with fontconfig from a settings file LilyPond includes
+    // ahead of the score (-dinclude-settings), so the source keeps its line
+    // numbers in diagnostics and needs no sandbox paths of its own.
+    const fontDirs = req.fontDirs ?? [];
+    const fontArgs: string[] = [];
+    if (fontDirs.length > 0) {
+      const lines = fontDirs.map((fd, i) => {
+        const guest = `/fonts/${i}`;
+        preopens[guest] = path.resolve(fd);
+        return `#(ly:font-config-add-directory "${guest}")`;
+      });
+      await writeFile(path.join(work, "fonts.ly"), lines.join("\n") + "\n");
+      fontArgs.push(`-dinclude-settings=${manifest.writableDirectory}/fonts.ly`);
+    }
+
     // Internal debugging affordance: extra engine arguments, space-split
     // (e.g. LILYPOND_MCP_EXTRA_ARGS="--verbose" for LilyPond's debug log).
     const extraArgs = (process.env.LILYPOND_MCP_EXTRA_ARGS ?? "").split(" ").filter(Boolean);
@@ -189,6 +205,7 @@ export async function engraveWasm(req: EngraveRequest, pin: EnginePin): Promise<
       ...(req.crop ? ["-dcrop"] : []),
       "-I/src/dir",
       ...includeArgs,
+      ...fontArgs,
       ...formatArgs,
       "-o",
       `${manifest.writableDirectory}/out`,

@@ -44,8 +44,9 @@ engine (~35 MB, checksum-verified, cached under
   for picking the right `\version` header.
 
 Both engrave tools accept `formats` (`pdf`/`eps`/`svg`/`png`), `crop`,
-`include_dirs` (for shared `\include` libraries), `output_dir`, and
-`preview` (default on; turn off to skip the inline image on batch runs). Paths
+`include_dirs` (for shared `\include` libraries), `font_dirs` (see below),
+`output_dir`, and `preview` (default on; turn off to skip the inline image
+on batch runs). Paths
 are resolved against the working directory the server is launched in — for
 an `.mcp.json` entry, that is the project root. On failure the result
 carries LilyPond's diagnostics, line numbers included, so an agent can fix
@@ -79,6 +80,22 @@ comes back cropped to the music, as PDF, EPS, SVG or PNG — this is the SVG:
 <img src="https://raw.githubusercontent.com/wspringer/lilypond-mcp/main/docs/example.svg" alt="Four bars of a waltz in G major with chord names and lyrics, engraved by LilyPond" width="600">
 
 (Source in [`docs/example.ly`](docs/example.ly).)
+
+## Custom fonts
+
+The engine ships with LilyPond's own text fonts and cannot see the fonts
+installed on your machine. To use another face, point `font_dirs` at a
+directory of `.otf`/`.ttf` files and select the family in the score:
+
+```lilypond
+\paper {
+  property-defaults.fonts.serif = "Tiempos Text"   % also .sans and .typewriter
+}
+```
+
+The PDF embeds the font (subsetted) like any other. Nothing about the
+sandbox leaks into the score, so the same file engraves with a desktop
+LilyPond too. Mind the font's licence when sharing the output.
 
 ## Engine
 

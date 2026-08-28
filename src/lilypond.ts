@@ -21,6 +21,12 @@ export interface EngraveRequest {
   crop: boolean;
   /** Extra include directories for \include resolution. */
   includeDirs: string[];
+  /**
+   * Directories of font files (.otf/.ttf) to make available to the engraving
+   * beyond the bundled ones; select them in the score with
+   * `property-defaults.fonts.serif = "Family"` etc.
+   */
+  fontDirs?: string[];
 }
 
 export interface EngraveResult {
