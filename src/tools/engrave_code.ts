@@ -43,6 +43,10 @@ export function makeEngraveCodeTool() {
 
   return {
     name: "engrave_code",
+    title: "Engrave LilyPond Code",
+    // Writes derived assets into output_dir; never deletes or mutates
+    // user data beyond overwriting its own previous outputs.
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     description:
       "Engrave LilyPond code passed inline, without needing a source file on disk. " +
       "Useful for iterating on a musical idea: engrave, read the preview PNG, adjust, repeat. " +

@@ -56,6 +56,10 @@ export function makeEngraveFileTool() {
 
   return {
     name: "engrave_file",
+    title: "Engrave LilyPond File",
+    // Writes derived assets into output_dir; never deletes or mutates
+    // user data beyond overwriting its own previous outputs.
+    annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true },
     description:
       "Engrave a LilyPond (.ly) source file into publication-quality music notation assets. " +
       "Cropped assets are sized to the music, ready to place in page-layout software. " +

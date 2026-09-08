@@ -10,6 +10,8 @@ export function makeVersionTool() {
 
   return {
     name: "lilypond_version",
+    title: "LilyPond Version",
+    annotations: { readOnlyHint: true },
     description:
       "Report the LilyPond version this server engraves with. " +
       "Use it to pick the right \\version header for new .ly files.",

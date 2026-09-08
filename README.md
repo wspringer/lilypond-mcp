@@ -26,7 +26,10 @@ Claude Code — `.mcp.json` in your project:
 ```
 
 Claude Desktop — `claude_desktop_config.json`, same entry under
-`mcpServers`.
+`mcpServers`. Or skip the config entirely: grab
+`lilypond-mcp.mcpb` from the [latest release](https://github.com/wspringer/lilypond-mcp/releases/latest)
+and open it with Claude Desktop — a desktop extension with the engine
+bundled in, so it works offline from the first engrave.
 
 That's the whole setup. On the first engrave, the server downloads the
 engine (~35 MB, checksum-verified, cached under
@@ -117,6 +120,24 @@ Then `LILYPOND_MCP_ENGINE_DIR=<dir> npm test`.
 
 Releases: conventional commits → Knope bot release PR → merge → npm
 publish via OIDC trusted publishing (no tokens).
+
+## Privacy Policy
+
+Everything happens on your machine. LilyPond sources are engraved locally
+by the bundled WebAssembly engine; neither your sources nor the generated
+assets ever leave your computer, and the server collects no data — no
+telemetry, no analytics, no accounts.
+
+The npm package makes exactly one kind of network request: downloading
+the pinned engine release from GitHub on first use (verified against
+checksums, cached under `~/.cache/lilypond-mcp`). The desktop extension
+(`.mcpb`) ships the engine inside the bundle and makes no network
+requests at all.
+
+Generated assets are written to the `output_dir` you choose and stay
+under your control; the server retains nothing else. Questions:
+[wilfred@eastpole.nl](mailto:wilfred@eastpole.nl) or the
+[issue tracker](https://github.com/wspringer/lilypond-mcp/issues).
 
 ## Licence
 
