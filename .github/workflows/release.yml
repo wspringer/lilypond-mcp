@@ -16,7 +16,7 @@ on:
     branches: [main]
 
 permissions:
-  contents: read
+  contents: write # attach the .mcpb to the GitHub release
   id-token: write # npm provenance via OIDC
 
 jobs:
@@ -43,3 +43,16 @@ jobs:
       - run: npm test
 
       - run: npm publish --access public
+
+      # The Claude Desktop extension: same server with the engine baked
+      # in. The bot already created the tag + GitHub release; attach the
+      # bundle to it so the README's "latest release" link always works.
+      - name: Build desktop extension
+        run: node scripts/build-mcpb.mjs
+
+      - name: Attach .mcpb to the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          VERSION=$(jq -r .version package.json)
+          gh release upload "v$VERSION" "build/lilypond-mcp-$VERSION.mcpb" --clobber
