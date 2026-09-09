@@ -1,3 +1,5 @@
+<img src="https://raw.githubusercontent.com/wspringer/lilypond-mcp/main/assets/icon.svg" alt="lilypond-mcp logo: a stylized lily" width="120" align="right">
+
 # lilypond-mcp
 
 [![npm](https://img.shields.io/npm/v/lilypond-mcp.svg)](https://www.npmjs.com/package/lilypond-mcp)
