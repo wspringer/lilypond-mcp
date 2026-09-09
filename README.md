@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/wspringer/lilypond-mcp/main/assets/icon.svg" alt="" width="48" align="top"> lilypond-mcp
+# <picture><source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/wspringer/lilypond-mcp/main/assets/logo-dark.svg"><img src="https://raw.githubusercontent.com/wspringer/lilypond-mcp/main/assets/logo-light.svg" alt="" width="52" align="top"></picture> lilypond-mcp
 
 [![npm](https://img.shields.io/npm/v/lilypond-mcp.svg)](https://www.npmjs.com/package/lilypond-mcp)
 
