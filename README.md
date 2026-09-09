@@ -26,8 +26,8 @@ Claude Code — `.mcp.json` in your project:
 ```
 
 Claude Desktop — `claude_desktop_config.json`, same entry under
-`mcpServers`. Or skip the config entirely: grab
-`lilypond-mcp.mcpb` from the [latest release](https://github.com/wspringer/lilypond-mcp/releases/latest)
+`mcpServers`. Or skip the config entirely: grab the `.mcpb` file from
+the [latest release](https://github.com/wspringer/lilypond-mcp/releases/latest)
 and open it with Claude Desktop — a desktop extension with the engine
 bundled in, so it works offline from the first engrave.
 

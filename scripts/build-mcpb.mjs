@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Build the Claude Desktop extension: build/lilypond-mcp.mcpb
+ * Build the Claude Desktop extension: build/lilypond-mcp-<version>.mcpb
  *
  * The bundle is self-contained — the pinned wasm engine is baked in and
  * manifest.json points LILYPOND_MCP_ENGINE_DIR at it, so the extension
@@ -20,9 +20,9 @@ import { fileURLToPath } from "node:url";
 
 const root = path.dirname(fileURLToPath(new URL("../package.json", import.meta.url)));
 const staging = path.join(root, "build", "mcpb");
-const out = path.join(root, "build", "lilypond-mcp.mcpb");
 
 const pkg = JSON.parse(await readFile(path.join(root, "package.json"), "utf8"));
+const out = path.join(root, "build", `lilypond-mcp-${pkg.version}.mcpb`);
 
 console.error("assembling engine dir (downloads on first run)...");
 const engineDir = execFileSync("node", [path.join(root, "scripts", "assemble-engine-dir.mjs")], {
