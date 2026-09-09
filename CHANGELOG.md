@@ -2,6 +2,19 @@
 
 Maintained by Knope from conventional commits.
 
+## 0.2.2 (2026-09-09)
+
+### Features
+
+#### Claude Desktop extension (.mcpb)
+
+Every release now ships a `lilypond-mcp.mcpb` desktop extension: open it
+with Claude Desktop and the server installs with the LilyPond engine
+bundled inside — no config file, no first-run download, works offline.
+
+All tools now also carry MCP annotations (`title`, read-only/destructive
+hints), and the server reports its real package version.
+
 ## 0.2.1 (2026-08-28)
 
 ### Features
